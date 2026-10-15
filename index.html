@@ -1,0 +1,1951 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f5f2">
+  <title>HPLC decision engine</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f5f2;
+      --surface: #ffffff;
+      --ink: #182522;
+      --muted: #64736e;
+      --line: #d7dfda;
+      --green: #176b56;
+      --green-pale: #e2f2eb;
+      --amber: #98600b;
+      --amber-pale: #fbf0d9;
+      --red: #a13e31;
+      --red-pale: #f8e7e3;
+      --blue: #315e83;
+      --blue-pale: #e8f0f6;
+      --display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      --body: "Aptos", "Segoe UI", sans-serif;
+      --mono: "Cascadia Code", Consolas, monospace;
+      --radius: 5px;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--body); }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .topbar { border-bottom: 1px solid var(--line); background: rgba(255,255,255,.82); }
+    .topbar-inner, main { width: min(1440px, calc(100% - 48px)); margin: 0 auto; }
+    .topbar-inner { display: flex; align-items: center; justify-content: space-between; min-height: 66px; gap: 20px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; }
+    .brand-mark { display: grid; place-items: center; width: 31px; height: 31px; background: var(--green); color: white; font: 700 15px var(--mono); border-radius: 3px; }
+    .brand small { display: block; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: .04em; }
+    .tabs { display: flex; gap: 4px; }
+    .tab { background: transparent; border: 0; color: var(--muted); padding: 9px 14px; border-bottom: 2px solid transparent; }
+    .tab[aria-selected="true"] { color: var(--green); border-color: var(--green); font-weight: 700; }
+    main { padding: 33px 0 56px; }
+    .page-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 24px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { font: 500 clamp(29px, 3vw, 42px)/1.05 var(--display); letter-spacing: 0; margin-bottom: 7px; }
+    h2 { font: 500 25px/1.15 var(--display); letter-spacing: 0; margin-bottom: 4px; }
+    h3 { font-size: 15px; margin-bottom: 12px; }
+    .eyebrow { text-transform: uppercase; color: var(--green); letter-spacing: .12em; font-size: 10px; font-weight: 800; margin-bottom: 8px; }
+    .subhead { color: var(--muted); margin: 0; }
+    .run-chip { border: 1px solid var(--line); background: var(--surface); border-radius: 3px; padding: 7px 11px; color: var(--muted); font: 12px var(--mono); white-space: nowrap; }
+    .legend { display: flex; flex-wrap: wrap; gap: 15px; color: var(--muted); font-size: 12px; margin: 0 0 17px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+    .dot.input { background: var(--blue); }.dot.result { background: var(--green); }.dot.check { background: var(--amber); }
+    .dashboard { display: grid; grid-template-columns: minmax(340px, .88fr) minmax(420px, 1.22fr); align-items: start; gap: 18px; }
+    .stack { display: grid; gap: 16px; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+    .panel-head { padding: 17px 19px 13px; border-bottom: 1px solid var(--line); display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+    .panel-body { padding: 18px 19px; }
+    .label-tag { font: 10px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--blue); }
+    .section-title { margin: 0; font-size: 15px; }
+    .help { color: var(--muted); font-size: 12px; margin: 5px 0 0; }
+    .upload { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 14px; border: 1px dashed #9eb5aa; background: #f8fbf8; border-radius: 4px; margin-bottom: 16px; }
+    .upload strong { display: block; font-size: 13px; }.upload small { color: var(--muted); font-size: 11px; }
+    .upload input[type="file"] {
+      max-width: 180px;
+      color: transparent;
+      font: 12px/1.2 var(--body);
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      box-shadow: none;
+    }
+    .upload input[type="file"]::file-selector-button {
+      appearance: none;
+      -webkit-appearance: none;
+      border: 1px solid var(--green);
+      background: var(--green);
+      color: #fff;
+      border-radius: 3px;
+      padding: 7px 10px;
+      margin-right: 8px;
+      font: 700 12px/1.2 var(--body);
+      cursor: pointer;
+    }
+    .divider { display: flex; align-items: center; gap: 10px; color: #87938e; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; margin: 13px 0; }
+    .divider:before, .divider:after { content: ""; height: 1px; background: var(--line); flex: 1; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 13px; }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    label.field { display: grid; gap: 5px; min-width: 0; }
+    .field-name { font-size: 12px; font-weight: 650; }
+    .unit { color: var(--muted); font-weight: 400; }
+    input[type="number"], input[type="text"], select, textarea { width: 100%; min-width: 0; border: 1px solid #cbd5cf; border-radius: 3px; padding: 9px 10px; background: #fff; color: var(--ink); outline: none; }
+    input:focus, select:focus, textarea:focus { border-color: var(--green); box-shadow: 0 0 0 2px rgba(23,107,86,.12); }
+    input[type="number"] { font-family: var(--mono); font-size: 13px; }
+    .helper { color: var(--muted); font-size: 10px; line-height: 1.35; }
+    .form-section { padding-top: 15px; margin-top: 16px; border-top: 1px solid var(--line); }
+    .form-section h3 { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+    .minimum-b-status { margin: 0 0 10px; color: var(--muted); font-size: 11px; }
+    .minimum-b-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; margin: 0 0 12px; }
+    .minimum-b-stats div { min-width: 0; padding: 8px; background: #f5f8f6; }
+    .minimum-b-stats dt { color: var(--muted); font-size: 10px; }
+    .minimum-b-stats dd { margin: 3px 0 0; font: 600 12px var(--mono); overflow-wrap: anywhere; }
+    .minimum-b-chart { display: block; width: 100%; height: auto; margin: 8px 0 12px; }
+    .minimum-b-chart .grid-line { stroke: #dfe5e0; stroke-width: 1; }
+    .minimum-b-chart .axis-line { stroke: #64736e; stroke-width: 1.2; }
+    .minimum-b-chart .fit-line { stroke: var(--green); stroke-width: 2.5; }
+    .minimum-b-chart .fit-point { fill: var(--red); stroke: white; stroke-width: 1.5; }
+    .minimum-b-chart text { fill: var(--muted); font: 10px var(--body); }
+    .minimum-b-run-table { font-size: 10px; }
+    .minimum-b-run-table th, .minimum-b-run-table td { padding: 6px 8px; white-space: nowrap; }
+    .checkboxes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 13px; }
+    .check { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: #394741; }
+    .check input { accent-color: var(--green); margin: 3px 0 0; }
+    details { border-top: 1px solid var(--line); margin-top: 17px; padding-top: 13px; }
+    summary { cursor: pointer; color: var(--green); font-size: 12px; font-weight: 700; }
+    .advanced { padding-top: 13px; display: grid; gap: 14px; }
+    textarea { min-height: 90px; font: 11px/1.5 var(--mono); resize: vertical; }
+    .actions { display: flex; gap: 9px; margin-top: 17px; align-items: center; }
+    .primary { border: 1px solid var(--green); background: var(--green); color: white; border-radius: 3px; padding: 10px 15px; font-weight: 700; }
+    .primary:hover { background: #105844; }
+    .secondary { border: 1px solid var(--line); background: white; color: var(--ink); border-radius: 3px; padding: 9px 12px; font-size: 12px; }
+    .run-action-buttons { display: flex; align-items: center; gap: 5px; }
+    .run-action-buttons .secondary { padding: 5px 8px; white-space: nowrap; }
+    .run-decision-dialog { width: min(560px, calc(100% - 32px)); padding: 0; border: 1px solid var(--line); border-radius: 4px; color: var(--ink); box-shadow: 0 16px 48px rgba(24,37,34,.2); }
+    .run-decision-dialog::backdrop { background: rgba(24,37,34,.42); }
+    .run-decision-dialog .panel-head { align-items: center; }
+    .run-decision-dialog .panel-body h3 { margin: 0 0 8px; }
+    .run-decision-dialog .panel-body p { margin: 0; color: var(--muted); font-size: 13px; }
+    .inline-status { font-size: 11px; color: var(--muted); }
+    .error { color: var(--red); background: var(--red-pale); border: 1px solid #edc7c0; padding: 9px 11px; border-radius: 3px; font-size: 12px; margin-top: 11px; }
+    .error.warning { color: var(--amber); background: var(--amber-pale); border-color: #ead7b0; }
+    .hidden { display: none !important; }
+    .decision-panel { overflow: hidden; }
+    .decision-banner { padding: 21px 22px; background: var(--green-pale); border-bottom: 1px solid #c4e0d3; }
+    .decision-banner.warn { background: var(--amber-pale); border-color: #ead7b0; }
+    .decision-banner.split { display: grid; gap: 12px; padding: 12px; background: transparent; border: 0; }
+    .decision-split-intro { padding: 8px 8px 2px; }
+    .decision-split-intro .decision-title { margin-bottom: 5px; }
+    .decision-split-intro .decision-copy { margin: 0; }
+    .decision-choice { padding: 18px 20px; background: var(--amber-pale); border: 1px solid #ead7b0; border-radius: 3px; }
+    .decision-choice .decision-title { margin-bottom: 5px; }
+    .decision-choice .decision-copy { margin: 0; }
+    .decision-banner.fail { background: var(--red-pale); border-color: #e9c5bd; }
+    .decision-banner.neutral { background: var(--blue-pale); border-color: #cfdeea; }
+    .decision-label { text-transform: uppercase; color: var(--green); font: 700 10px var(--mono); letter-spacing: .1em; margin-bottom: 7px; }
+    .decision-banner.warn .decision-label { color: var(--amber); }.decision-banner.fail .decision-label { color: var(--red); }.decision-banner.neutral .decision-label { color: var(--blue); }
+    .decision-title { font: 500 28px/1.1 var(--display); letter-spacing: 0; margin: 0; }
+    .decision-copy { color: #42514a; font-size: 13px; margin: 9px 0 0; max-width: 68ch; }
+    .conditions { padding: 17px 21px 19px; border-bottom: 1px solid var(--line); }
+    .conditions-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 12px; }
+    .conditions-top h3 { margin: 0; }.conditions-top span { color: var(--muted); font-size: 10px; }
+    .condition-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+    .condition { min-height: 68px; padding: 10px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .condition:nth-child(3n) { border-right: 0; }.condition:nth-last-child(-n+3) { border-bottom: 0; }
+    .condition dt { color: var(--muted); font-size: 10px; margin-bottom: 4px; }.condition dd { margin: 0; font: 700 13px var(--mono); overflow-wrap: anywhere; }
+    .condition.changed dd { color: var(--red); }.condition.missing dd { color: var(--amber); font: 600 11px var(--body); }
+    .measured { padding: 17px 21px; }
+    .measured h3 { margin: 0 0 11px; }
+    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+    .metric { background: #f5f8f6; padding: 10px 11px; border-left: 2px solid var(--blue); min-width: 0; }
+    .metric dt { color: var(--muted); font-size: 10px; min-height: 28px; }.metric dd { font: 700 17px var(--mono); margin: 3px 0 0; overflow-wrap: anywhere; }
+    .equipment-link { display: inline-flex; align-items: center; gap: 6px; color: var(--green); border: 0; background: transparent; padding: 0; font-size: 11px; font-weight: 700; }
+    .equipment-note { margin: 0 21px 18px; padding: 11px 12px; border-left: 3px solid var(--amber); background: #faf7ef; font-size: 12px; }
+    .equipment-note strong { display: block; margin-bottom: 3px; }
+    .specs { padding: 0 21px 18px; }
+    .specs-row { display: flex; flex-wrap: wrap; gap: 7px; }
+    .spec-pill { font: 10px var(--mono); color: #45544d; background: #f0f3f0; border: 1px solid #dfe5e0; padding: 5px 7px; border-radius: 2px; }
+    .spec-pill.changed { color: var(--amber); background: var(--amber-pale); border-color: #ead7b0; }
+    .next-step { border-top: 1px solid var(--line); padding: 13px 21px; color: var(--muted); font-size: 12px; }
+    .options { padding: 0 21px 18px; display: grid; gap: 9px; }
+    .option { border: 1px solid var(--line); background: #fbfcfb; border-radius: 3px; padding: 12px 13px; }
+    .option strong { display: block; font-size: 13px; color: var(--green); }.option p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .option button { margin-top: 9px; padding: 5px 8px; border: 1px solid var(--green); border-radius: 3px; background: white; color: var(--green); font-size: 11px; font-weight: 700; }
+    .option button[aria-pressed="true"] { background: var(--green); color: white; }
+    .calc { margin: 0 21px 18px; border: 1px solid var(--line); border-radius: 3px; display: none; }
+    .calc summary { padding: 10px 12px; color: var(--ink); }.calc-body { padding: 0 12px 12px; color: var(--muted); font-size: 11px; }
+    .equip-page { display: none; }.equip-page.active { display: block; }.run-page.hidden-page { display: none; }
+    .equipment-intro { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 18px; }
+    .equip-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 17px; align-items: start; }
+    .equipment-parameters { grid-column: 1 / -1; }
+    .table-wrap { overflow-x: auto; }
+      .run-summary { margin-top: 18px; }
+      .run-summary table { font-size: 11px; }
+      .run-summary td { padding: 9px 12px; }
+      .run-summary .table-wrap { overflow-x: auto; }
+      .run-summary table { min-width: 1760px; }
+      .run-summary table.compact { min-width: 820px; }
+      .run-summary table.compact .run-detail { display: none; }
+      .run-summary .run-table-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+      .run-summary .run-table-toggle input { accent-color: var(--green); margin: 0; }
+      .run-summary .run-table-actions { display: flex; align-items: center; gap: 12px; }
+      .run-summary .run-cell-editor { width: 100%; min-width: 72px; padding: 5px 6px; font-size: 11px; }
+      .run-summary select.run-cell-editor { min-width: 96px; }
+      .run-summary .run-number-controls { display: flex; align-items: center; gap: 4px; min-width: 0; }
+      .run-summary .run-number-input { flex: 1; width: 110px; min-width: 84px; padding: 5px 6px; font-size: 11px; }
+      .run-summary .run-order-button { padding: 4px 7px; font-size: 12px; line-height: 1; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; padding: 10px 12px; color: var(--muted); background: #f5f7f5; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+    .parameter-group-heading th { color: var(--ink); background: #eaf0ec; font-size: 11px; letter-spacing: 0; text-transform: none; }
+    td { padding: 11px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+    td button { background: none; border: 0; padding: 0; color: var(--green); text-align: left; font-weight: 700; }
+    #equipmentRows td:nth-child(3) button { color: inherit; font-weight: inherit; }
+    td small { display: block; color: var(--muted); margin-top: 3px; }
+    .equipment-row-editor { display: grid; gap: 5px; min-width: 130px; }
+    .equipment-row-editor input, .equipment-row-editor textarea { padding: 6px 7px; font-size: 11px; }
+    .equipment-row-editor textarea { min-height: 58px; resize: vertical; }
+    .equipment-row-actions { display: flex; justify-content: flex-end; }
+    .equipment-row-delete { color: var(--red); border: 0; background: transparent; padding: 0; font-size: 10px; }
+    #equipmentRows tr.equipment-row-highlight td { background: var(--amber-pale); box-shadow: inset 0 2px 0 var(--amber), inset 0 -2px 0 var(--amber); }
+    .equipment-add-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+    .equipment-add-actions button { border: 1px solid var(--green); background: white; color: var(--green); border-radius: 3px; padding: 6px 9px; font-size: 11px; font-weight: 700; }
+    .equipment-save-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+    .equipment-save-actions button { border: 1px solid var(--green); background: var(--green); color: white; border-radius: 3px; padding: 6px 9px; font-size: 11px; font-weight: 700; }
+    .equipment-save-actions button.secondary { background: white; color: var(--green); }
+    .equipment-save-status { color: var(--muted); font-size: 11px; margin: 8px 0 0; }
+    .equipment-add-help { color: var(--muted); font-size: 11px; margin: 8px 0 0; }
+    .module-buttons { display: grid; grid-template-columns: 1fr; gap: 7px; padding: 14px 17px; min-width: 0; }
+    .module-btn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: #fff; border-radius: 3px; padding: 7px 10px; font-size: 11px; color: var(--ink); width: 100%; min-width: 0; }
+    .module-grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+    .module-btn img { width: 52px; height: 36px; object-fit: contain; background: #f6f8f7; border: 1px solid var(--line); border-radius: 3px; flex-shrink: 0; }
+    .module-btn .module-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .module-btn[aria-pressed="true"] { border-color: var(--green); background: var(--green-pale); color: var(--green); }
+    .module-btn.module-btn-column { height: 52px; }
+    .module-btn.module-btn-injector { height: 150px; max-width: 474px; width: 100%; }
+    .module-btn.module-btn-injector img { width: 52px; height: 108px; }
+    .module-tip { margin: 0; padding: 0 17px 14px; color: var(--muted); font-size: 12px; font-style: italic; }
+    .module-citation { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .detail-card { padding: 17px; }
+    .detail-card.parameter-highlight { background: var(--amber-pale); border-color: var(--amber); box-shadow: 0 0 0 3px rgba(152,96,11,.18); }
+    .detail-card.empty-state { min-height: 150px; display: grid; place-items: center; text-align: center; color: var(--muted); }
+    .detail-card.empty-state p { margin: 0; }
+    .detail-card h3 { font: 500 21px var(--display); margin: 0 0 11px; }
+    .detail-card .module-figure { margin: 0 0 14px; border: 1px solid var(--line); border-radius: 4px; background: #f7faf8; padding: 10px; }
+    .detail-card .module-figure img { display: block; width: 100%; max-height: 240px; object-fit: contain; border-radius: 3px; }
+    .detail-card dl { display: grid; grid-template-columns: 105px 1fr; gap: 8px 10px; margin: 0; font-size: 12px; }
+    .detail-card dt { color: var(--muted); }.detail-card dd { margin: 0; }
+    .response-strip { padding: 14px 17px; color: var(--muted); font-size: 12px; }
+    .response-strip strong { color: var(--ink); }
+    .footer { color: var(--muted); font-size: 10px; border-top: 1px solid var(--line); padding-top: 13px; margin-top: 22px; }
+    @media (max-width: 940px) { .dashboard { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) { .equip-layout { grid-template-columns: 1fr; }.equipment-parameters { grid-column: 1; } }
+    @media (max-width: 600px) {
+      .topbar-inner, main { width: min(100% - 28px, 1440px); }
+      .topbar-inner { min-height: 58px; }.brand small { display: none; }.tab { padding: 8px 9px; font-size: 12px; }
+      main { padding-top: 24px; }.page-head, .equipment-intro { align-items: flex-start; flex-direction: column; gap: 12px; }
+      .grid.three { grid-template-columns: repeat(2,minmax(0,1fr)); }.metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .condition-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.condition:nth-child(3n) { border-right: 1px solid var(--line); }.condition:nth-child(2n) { border-right: 0; }.condition:nth-last-child(-n+3) { border-bottom: 1px solid var(--line); }.condition:nth-last-child(-n+2) { border-bottom: 0; }
+      .panel-head, .panel-body, .decision-banner { padding-left: 15px; padding-right: 15px; }.conditions, .measured { padding-left: 15px; padding-right: 15px; }.equipment-note, .calc { margin-left: 15px; margin-right: 15px; }.specs, .options, .next-step { padding-left: 15px; padding-right: 15px; }
+      .upload { align-items: flex-start; flex-direction: column; }.upload input { max-width: 100%; }.run-chip { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-mark">LC</span><span>HPLC Run Review<small>METHOD DEVELOPMENT DECISION SUPPORT</small></span></div>
+      <nav class="tabs" aria-label="Main views">
+        <button class="tab" id="runTab" aria-selected="true" type="button">Run review</button>
+        <button class="tab" id="equipmentTab" aria-selected="false" type="button">Equipment</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="run-page" id="runPage">
+      <div class="page-head">
+        <div><div class="eyebrow">Decision sequence / retention → selectivity → efficiency</div><h1>HPLC decision engine</h1></div>
+        <div class="run-chip" id="runIndicator">RUN 01 · NOT EVALUATED</div>
+      </div>
+      <div class="legend" aria-label="Colour legend"><span><i class="dot input"></i> User input / measured data</span><span><i class="dot result"></i> Recommended condition</span><span><i class="dot check"></i> Check required</span></div>
+
+      <div class="dashboard">
+        <div class="stack">
+          <section class="panel">
+            <div class="panel-head"><div><div class="label-tag">01 / input</div><h2 class="section-title">Chromatogram data</h2><p class="help">Upload a CSV or Excel export, or enter the measured summary below.</p></div></div>
+            <div class="panel-body">
+              <div class="upload">
+                <div><strong>Import CSV or Excel</strong></div>
+                <input id="csvFile" type="file" accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+              </div>
+              <div class="divider">Manual entry</div>
+              <div class="grid">
+                <label class="field"><span class="field-name">Peak count</span><input id="peakCount" type="number" min="0" step="1" placeholder="e.g. 7"><span class="helper">Detected peaks in this run</span></label>
+                <label class="field"><span class="field-name">Last peak retention time <span class="unit">(min)</span></span><input id="runTime" type="number" min="0" step="any" placeholder="e.g. 12.8"></label>
+                <label class="field"><span class="field-name">Resolution (min)</span><input id="resolution" type="number" min="0" step="any" placeholder="e.g. 1.52"></label>
+                <label class="field"><span class="field-name">Backpressure <span class="unit">(psi)</span></span><input id="pressure" type="number" min="0" step="any" placeholder="e.g. 2850"></label>
+              </div>
+              <div class="form-section">
+                <h3>Current method conditions <span class="label-tag">Automatically extracted or User Supplied</span></h3>
+                <div class="grid three">
+                  <label class="field"><span class="field-name">Current %B</span><input id="currentB" type="number" min="0" max="100" step="any" placeholder="e.g. 35"></label>
+                  <label class="field"><span class="field-name">Minimum %B</span><input id="minimumB" type="number" min="0" max="100" step="any" placeholder="e.g. 10"><span class="helper">Calculated method lower bound; carried forward to later runs</span></label>
+                  <label class="field"><span class="field-name">Current solvent</span><input id="currentSolvent" type="text" placeholder="e.g. ACN / water"></label>
+                  <label class="field"><span class="field-name">Temperature <span class="unit">(°C)</span></span><input id="currentTemp" type="number" min="0" step="any" placeholder="e.g. 30"></label>
+                  <label class="field"><span class="field-name">Current ligand</span><select id="currentLigand"><option value="" selected disabled>Select a ligand</option><option>BIP</option><option>C18</option><option>C18AQ</option><option>PFPP</option><option>C8</option><option>IBD</option></select></label>
+                  <label class="field"><span class="field-name">Flow <span class="unit">(mL/min)</span></span><input id="flow" type="number" min="0" step="any" placeholder="optional"></label>
+                </div>
+                <details class="minimum-b-analysis" id="minimumBAnalysis" aria-live="polite">
+                  <summary>Minimum B regression</summary>
+                  <div>
+                    <p class="minimum-b-status" id="minimumBStatus">Upload at least two CSV runs at 25 °C to calculate Minimum %B.</p>
+                    <div id="minimumBResult" hidden>
+                      <dl class="minimum-b-stats" id="minimumBStats"></dl>
+                      <svg class="minimum-b-chart" id="minimumBChart" viewBox="0 0 640 320" role="img" aria-label="Log10 retention factor regression versus percent B"></svg>
+                      <div class="table-wrap">
+                        <table class="minimum-b-run-table">
+                          <thead><tr><th>Run</th><th>%B</th><th>t0 (min)</th><th>tR (min)</th><th>K</th><th>log10(K)</th><th>Fit status</th><th>Actions</th></tr></thead>
+                          <tbody id="minimumBRunRows"></tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              </div>
+              <details>
+                <summary>Enter run requirements here</summary>
+                <div class="advanced">
+                  <div class="grid">
+                    <label class="field"><span class="field-name">Required peak count</span><input id="specPeaks" type="number" min="1" step="1" value="7"></label>
+                    <label class="field"><span class="field-name">Maximum run time <span class="unit">(min)</span></span><input id="specTime" type="number" min="0.1" step="any" value="15"></label>
+                    <label class="field"><span class="field-name">Minimum resolution <span class="unit">(Rs)</span></span><input id="specRs" type="number" min="0" step="any" value="1.4"></label>
+                    <label class="field"><span class="field-name">Maximum backpressure <span class="unit">(psi)</span></span><input id="specPressure" type="number" min="0" step="any" value="4000"></label>
+                    <label class="field"><span class="field-name">Temperature 1 <span class="unit">(°C)</span></span><input id="targetT1" type="number" min="0" step="any" value="40"></label>
+                    <label class="field"><span class="field-name">Temperature 2 <span class="unit">(°C)</span></span><input id="targetT2" type="number" min="0" step="any" value="60"></label>
+                    <label class="field"><span class="field-name">Second solvent name</span><input id="secondSolvent" type="text" placeholder="user-defined"></label>
+                    <label class="field"><span class="field-name">Converted %B for second solvent</span><input id="secondSolventB" type="number" min="0" max="100" step="any" placeholder="nomogram value"></label>
+                  </div>
+                  <div><label class="field"><span class="field-name">Optional log k calibration</span><textarea id="logKData" placeholder="%B,logk_compound_1,logk_compound_2&#10;20,1.8,2.1&#10;30,1.2,1.5&#10;40,0.7,0.9"></textarea><span class="helper">CSV-like rows with a %B column and one log k column per compound. Used only with a target log k below.</span></label></div>
+                  <label class="field"><span class="field-name">Target log k for intermediate %B <span class="unit">(optional)</span></span><input id="targetLogK" type="number" step="any" placeholder="e.g. 1.0"><span class="helper">The intermediate %B is derived by linear interpolation for each compound; all estimates must fall between minimum and current %B.</span></label>
+                  <div><label class="field"><span class="field-name">Optional measured %B / runtime calibration</span><textarea id="rtCalibration" placeholder="%B,rt_min&#10;25,18.4&#10;35,12.8&#10;45,9.6"></textarea><span class="helper">Measured calibration pairs only. Expected runtime is shown only when a candidate %B is bracketed by these points.</span></label></div>
+                </div>
+              </details>
+              <div class="actions"><button class="primary" id="evaluateBtn" type="button">Evaluate run</button><button class="secondary" id="clearBtn" type="button">Clear measurements</button><span class="inline-status" id="inputStatus">Awaiting measured values</span></div>
+              <div class="error hidden" id="inputError" role="alert"></div>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel decision-panel" aria-live="polite">
+          <div class="decision-banner neutral" id="decisionBanner">
+            <div class="decision-label" id="decisionLabel">Decision pending</div>
+            <h2 class="decision-title" id="decisionTitle">Enter or import a run</h2>
+            <p class="decision-copy" id="decisionCopy">The measured values and configured specifications will appear here after evaluation.</p>
+          </div>
+          <div class="conditions" id="sharedConditions">
+            <div class="conditions-top"><h3>Next-run conditions</h3><span>Automatically assembled from current settings</span></div>
+            <dl class="condition-grid" id="conditionGrid">
+              <div class="condition"><dt>%B</dt><dd>—</dd></div><div class="condition"><dt>Temperature</dt><dd>—</dd></div><div class="condition"><dt>Solvent</dt><dd>—</dd></div>
+              <div class="condition"><dt>Ligand</dt><dd>—</dd></div><div class="condition"><dt>Flow</dt><dd>—</dd></div><div class="condition"><dt>Other</dt><dd>—</dd></div>
+            </dl>
+          </div>
+          <div id="recommendationNote" class="equipment-note hidden"></div>
+          <div id="options" class="options hidden"></div>
+          <details class="calc" id="calculationDetails" hidden><summary>Intermediate checks</summary><div class="calc-body" id="calculationBody"></div></details>
+          <div class="specs">
+            <div class="conditions-top">
+              <h3>Specifications in force</h3>
+              <span id="specStatus">Requirements</span>
+            </div>
+            <div class="label-tag" style="display:block; margin: 0 0 8px; color: var(--muted); letter-spacing: .04em; text-transform: none; font-weight: 600;">Linked to method limit parameters</div>
+            <div class="specs-row" id="specPills"></div>
+            <div class="actions" style="margin-top: 12px;"><button class="secondary" id="equipmentPageBtn" type="button">Go to equipment page</button></div>
+          </div>
+          <div class="next-step" id="nextStep"></div>
+        </section>
+      </div>
+      <p class="footer">Decision support only. Confirm recommendations against the instrument, column and approved method limits before running. CSV import accepts numeric measurements only; it does not infer missing chromatographic values.</p>
+          <section class="panel run-summary" aria-labelledby="runSummaryTitle">
+            <div class="panel-head"><div><h2 class="section-title" id="runSummaryTitle">Run table</h2></div><div class="run-table-actions"><label class="run-table-toggle"><input id="compactRunTable" type="checkbox"> Compact details</label><button class="secondary" id="addRunRowBtn" type="button">Add row</button></div></div>
+            <div class="table-wrap">
+              <table id="runSummaryTable">
+                <thead><tr>
+                  <th scope="col">Run</th>
+                  <th class="run-detail" scope="col">Ligand</th>
+                  <th class="run-detail" scope="col">Bead Type</th>
+                  <th class="run-detail" scope="col">Coreshell</th>
+                  <th class="run-detail" scope="col">Pore Size (Å)</th>
+                  <th class="run-detail" scope="col">C Load (%)</th>
+                  <th class="run-detail" scope="col">Length (mm)</th>
+                  <th class="run-detail" scope="col">Ø (mm)</th>
+                  <th class="run-detail" scope="col">PS (µm)</th>
+                  <th class="run-detail" scope="col">Solvent</th>
+                  <th class="run-detail" scope="col">%B</th>
+                  <th class="run-detail" scope="col">Flow (mL/min)</th>
+                  <th class="run-detail" scope="col">Sample Conc (mg/mL)</th>
+                  <th class="run-detail" scope="col">Temp (°C)</th>
+                  <th class="run-detail" scope="col">Wavelength (nm)</th>
+                  <th class="run-detail" scope="col">Measured Temp (°C)</th>
+                  <th scope="col"># Peaks</th>
+                  <th scope="col">Run time (tR Last (min))</th>
+                  <th scope="col">Resolution (Rmin)</th>
+                  <th scope="col">Backpressure (psi)</th>
+                  <th scope="col">Actions</th>
+                </tr></thead>
+                <tbody id="runSummaryRows"></tbody>
+              </table>
+            </div>
+          </section>
+        <dialog class="run-decision-dialog" id="runDecisionDialog" aria-labelledby="runDecisionHeading">
+          <div class="panel-head">
+            <div><div class="label-tag">Recorded run</div><h2 class="section-title" id="runDecisionHeading">Run decision</h2></div>
+            <button class="secondary" id="closeRunDecision" type="button">Close</button>
+          </div>
+          <div class="panel-body"><h3 id="runDecisionTitle"></h3><p id="runDecisionCopy"></p></div>
+        </dialog>
+    </section>
+
+    <section class="equip-page" id="equipmentPage">
+      <div class="equipment-intro"><div><div class="eyebrow">Instrument map / control points</div><h1>Equipment & parameters</h1><p class="subhead">Select a module or parameter to inspect its function, control point, operating range and chromatographic effect.</p></div><div class="run-chip">RANGES ARE TYPICAL / VERIFY YOUR SYSTEM</div></div>
+      <div class="equip-layout">
+        <div class="stack">
+          <div class="panel module-hardware-layout" style="padding: 0;">
+            <div class="panel-head module-hardware-header" style="border-bottom: 1px solid var(--line); border-radius: 0;">
+              <div><div class="label-tag">Instrument modules</div><h2 class="section-title">Control hardware</h2><p class="module-citation"><strong>HPLC machine modules</strong><br>Source: L. Orlando, 2026, BPS2032 Monash University.</p></div>
+            </div>
+            <div class="module-grid-two module-hardware-content" style="padding: 14px 17px; gap: 16px;">
+              <section class="module-panel"><div class="module-buttons" id="moduleButtons"></div></section>
+              <section class="module-panel"><div class="module-buttons" id="moduleButtonsDuplicate"></div></section>
+            </div>
+            <p class="module-tip">Click for more information</p>
+          </div>
+        </div>
+        <aside class="panel detail-card empty-state" id="equipmentDetail" aria-live="polite"><p>Click on module to show information</p></aside>
+        <section class="panel equipment-parameters"><div class="panel-head"><div><div class="label-tag">Parameters</div><h2 class="section-title">Response, control and method variables</h2><p class="help">Add your own variables and type directly into their rows. They are saved in this browser.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Parameter</th><th>Category</th><th>Controlling module</th><th>Usual range / units</th><th>Chromatographic effect</th><th>Source</th></tr></thead><tbody id="equipmentRows"></tbody></table></div>
+          <div class="panel-body" style="padding-top: 0;"><div class="equipment-add-actions"><button type="button" data-add-equipment-variable="response">Add response variable</button><button type="button" data-add-equipment-variable="control">Add control variable</button><button type="button" data-add-equipment-variable="method">Add method variable</button></div><div class="equipment-save-actions"><button type="button" id="saveEquipmentVariables">Save and lock fields</button><button type="button" id="editEquipmentVariables" class="secondary">Edit fields</button></div><p class="equipment-save-status" id="equipmentSaveStatus" aria-live="polite">New rows are editable until saved.</p><p class="equipment-add-help">Add a row, type its values, then save to keep the changes and lock the fields.</p></div>
+          <div class="response-strip"><strong>Read directly from chromatogram / instrument output:</strong> peak count, retention time, resolution and backpressure. <strong>Calculated by this app:</strong> pass/fail checks, decision branch, %B change and (only when calibrations are supplied) intermediate %B or expected runtime. No chromatographic responses are simulated.</div>
+        </section>
+      </div>
+      <p class="footer">Operating ranges are general orientation values, not instrument-specific limits. The active method and equipment manual take precedence.</p>
+    </section>
+  </main>
+
+  <script src="xlsx.full.min.js"></script>
+  <script>
+    "use strict";
+
+    const byId = id => document.getElementById(id);
+    const DEFAULT_SPECS = {peaks:7, time:15, rs:1.4, pressure:4000};
+    const fields = ["peakCount", "runTime", "resolution", "pressure", "currentB", "minimumB", "previousB", "currentTemp", "flow", "specPeaks", "specTime", "specRs", "specPressure", "targetT1", "targetT2", "secondSolventB", "targetLogK", "defaultSpecPeaks", "defaultSpecTime", "defaultSpecRs", "defaultSpecPressure"];
+    const textFields = ["runLabel", "currentSolvent", "currentLigand", "secondSolvent"];
+    let lastDecision = null;
+    let defaultSpecs = {...DEFAULT_SPECS};
+    let inputSource = "manual";
+    let importedRunLabel = "Run (unlabelled)";
+    let runRows = [];
+    let pendingDecisionRunId = null;
+    let decisionIsCurrent = false;
+    let excludedMinimumBRunIds = new Set();
+    let nextRunNumber = 1;
+    const RUN_TABLE_STORAGE_KEY = "hplc-decision-run-table-v1";
+    const METHOD_STATE_STORAGE_KEY = "hplc-decision-method-state-v1";
+
+    function roundPressure(value) {
+      if (value === null || value === undefined || value === "") return null;
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? Number(numeric.toFixed(4)) : null;
+    }
+
+    function formatPressure(value) {
+      if (value === null || value === undefined || value === "") return "";
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric.toFixed(4) : String(value);
+    }
+
+    function saveCalculatedMinimumB(value) {
+      try {
+        localStorage.setItem(METHOD_STATE_STORAGE_KEY, JSON.stringify({calculatedMinimumB:value}));
+      } catch (error) {}
+    }
+
+    function restoreCalculatedMinimumB() {
+      try {
+        const saved = localStorage.getItem(METHOD_STATE_STORAGE_KEY);
+        if (!saved || byId("minimumB").value.trim() !== "") return;
+        const state = JSON.parse(saved);
+        const value = Number(state && state.calculatedMinimumB);
+        if (Number.isFinite(value) && value >= 0 && value <= 100) byId("minimumB").value = String(value);
+      } catch (error) {}
+    }
+
+    function saveRunRows() {
+      try {
+        localStorage.setItem(RUN_TABLE_STORAGE_KEY, JSON.stringify({runRows, excludedMinimumBRunIds:[...excludedMinimumBRunIds], nextRunNumber}));
+      } catch (error) {}
+    }
+
+    function restoreRunRows() {
+      try {
+        const saved = localStorage.getItem(RUN_TABLE_STORAGE_KEY);
+        if (!saved) return;
+        const state = JSON.parse(saved);
+        if (!state || !Array.isArray(state.runRows)) return;
+        runRows = state.runRows.filter(run => run && typeof run === "object" && typeof run.id === "string");
+        excludedMinimumBRunIds = new Set(Array.isArray(state.excludedMinimumBRunIds) ? state.excludedMinimumBRunIds.filter(id => typeof id === "string") : []);
+        let migrated = false;
+        let automaticRunNumber = 1;
+        for (const run of runRows) {
+          const metadata = run.sampleName ? parseRunMetadata(run.sampleName) : {};
+          if (typeof run.runNumberManual !== "boolean") {
+            const legacyAutomatic = run.run === metadata.run || /^r\d+$/i.test(String(run.run || ""));
+            run.runNumberManual = !legacyAutomatic;
+            migrated = true;
+          }
+          const generatedRunLabel = run.run === metadata.run || /^r\d+$/i.test(String(run.run || "")) || /^R\d+$/i.test(String(run.run || ""));
+          if (!run.runNumberManual && generatedRunLabel) {
+            const runLabel = `R${String(automaticRunNumber++).padStart(2, "0")}`;
+            if (run.run !== runLabel) {
+              run.run = runLabel;
+              migrated = true;
+            }
+          }
+          for (const key of ["ligand", "sampleConc", "temp"]) {
+            if (metadata[key] !== "" && run[key] !== metadata[key]) {
+              run[key] = metadata[key];
+              migrated = true;
+            }
+          }
+          for (const key of ["beadType", "length", "diameter", "particleSize", "wavelength"]) {
+            if ((run[key] === "" || run[key] === null || run[key] === undefined) && metadata[key] !== "") {
+              run[key] = metadata[key];
+              migrated = true;
+            }
+          }
+          const pressure = roundPressure(run.pressure);
+          if (pressure !== null && run.pressure !== pressure) {
+            run.pressure = pressure;
+            migrated = true;
+          }
+        }
+        const highestStoredId = runRows.reduce((highest, run) => {
+          const match = run.id.match(/^run-(\d+)$/);
+          return match ? Math.max(highest, Number(match[1])) : highest;
+        }, 0);
+        const savedNextNumber = Number.isSafeInteger(state.nextRunNumber) ? state.nextRunNumber : 1;
+        nextRunNumber = Math.max(1, savedNextNumber, highestStoredId + 1);
+        if (migrated) saveRunRows();
+      } catch (error) {
+        runRows = [];
+        excludedMinimumBRunIds = new Set();
+        nextRunNumber = 1;
+      }
+    }
+
+    const runTableColumns = [
+      {key:"run"}, {key:"ligand",detail:true}, {key:"beadType",detail:true}, {key:"coreshell",detail:true},
+      {key:"poreSize",detail:true}, {key:"cLoad",detail:true}, {key:"length",detail:true}, {key:"diameter",detail:true},
+      {key:"particleSize",detail:true}, {key:"solvent",detail:true}, {key:"percentB",detail:true}, {key:"flow",detail:true},
+      {key:"sampleConc",detail:true}, {key:"temp",detail:true}, {key:"wavelength",detail:true}, {key:"measuredTemp",detail:true},
+      {key:"peaks"}, {key:"runtime"}, {key:"resolution"}, {key:"pressure"}
+    ];
+
+    function renderRunSummary() {
+      const tbody = byId("runSummaryRows");
+      tbody.replaceChildren();
+      if (!runRows.length) {
+        const row = tbody.insertRow();
+        const cell = row.insertCell();
+        cell.colSpan = runTableColumns.length + 1;
+        cell.textContent = "No runs recorded";
+        return;
+      }
+      for (const [runIndex, run] of runRows.entries()) {
+        const row = tbody.insertRow();
+        row.dataset.runId = run.id;
+        if (run.sampleName) row.title = run.sampleName;
+        for (const column of runTableColumns) {
+          const cell = row.insertCell();
+          if (column.detail) cell.className = "run-detail";
+          if (column.key === "run") {
+            const controls = document.createElement("div");
+            controls.className = "run-number-controls";
+            const input = document.createElement("input");
+            input.className = "run-number-input";
+            input.type = "text";
+            input.value = run.run ?? "";
+            input.setAttribute("aria-label", `Run number for ${run.id}`);
+            input.dataset.runNumber = run.id;
+            controls.append(input);
+            for (const {direction, label, glyph, disabled} of [
+              {direction:-1,label:"Move run up",glyph:"↑",disabled:runIndex === 0},
+              {direction:1,label:"Move run down",glyph:"↓",disabled:runIndex === runRows.length - 1}
+            ]) {
+              const button = document.createElement("button");
+              button.className = "secondary run-order-button";
+              button.type = "button";
+              button.textContent = glyph;
+              button.title = label;
+              button.setAttribute("aria-label", `${label}: ${run.run}`);
+              button.dataset.moveRun = run.id;
+              button.dataset.direction = String(direction);
+              button.disabled = disabled;
+              controls.append(button);
+            }
+            cell.append(controls);
+          } else if (column.key === "beadType" || column.key === "coreshell") {
+            const select = document.createElement("select");
+            select.className = "run-cell-editor";
+            select.setAttribute("aria-label", `${column.key === "beadType" ? "Bead Type" : "Coreshell"} for ${run.run}`);
+            select.dataset.runId = run.id;
+            select.dataset.runField = column.key;
+            const choices = column.key === "beadType" ? ["Pinnacle", "Ultra"] : ["Yes", "No"];
+            const emptyOption = document.createElement("option");
+            emptyOption.value = "";
+            emptyOption.textContent = "Select";
+            select.append(emptyOption);
+            for (const choice of choices) {
+              const option = document.createElement("option");
+              option.value = choice;
+              option.textContent = choice;
+              select.append(option);
+            }
+            select.value = run[column.key] ?? "";
+            cell.append(select);
+          } else if (["poreSize", "cLoad", "length", "diameter", "particleSize", "wavelength", "measuredTemp"].includes(column.key)) {
+            const input = document.createElement("input");
+            input.className = "run-cell-editor";
+            input.type = "number";
+            input.min = "0";
+            input.step = "any";
+            if (column.key === "cLoad") input.max = "100";
+            input.value = run[column.key] ?? "";
+            const editorName = {poreSize:"Pore Size",cLoad:"C Load",length:"Length",diameter:"Diameter",particleSize:"Particle Size",wavelength:"Wavelength",measuredTemp:"Measured Temperature"}[column.key];
+            input.setAttribute("aria-label", `${editorName} for ${run.run}`);
+            input.dataset.runId = run.id;
+            input.dataset.runField = column.key;
+            cell.append(input);
+          } else if (column.key === "pressure") {
+            cell.textContent = run.pressure === null || run.pressure === undefined || run.pressure === "" ? "" : Number(run.pressure).toFixed(4);
+          } else {
+            cell.textContent = run[column.key] ?? "";
+          }
+        }
+        const actions = row.insertCell();
+        actions.className = "run-action-buttons";
+        const decisionButton = document.createElement("button");
+        decisionButton.className = "secondary";
+        decisionButton.type = "button";
+        decisionButton.textContent = "Decision";
+        decisionButton.setAttribute("aria-label", `View decision for run ${run.run}`);
+        decisionButton.dataset.showRunDecision = run.id;
+        actions.append(decisionButton);
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "secondary";
+        deleteButton.type = "button";
+        deleteButton.textContent = "Delete";
+        deleteButton.setAttribute("aria-label", `Delete run ${run.run}`);
+        deleteButton.dataset.deleteRun = run.id;
+        actions.append(deleteButton);
+      }
+    }
+
+    function showRunDecision(runId) {
+      const run = runRows.find(item => item.id === runId);
+      if (!run) return;
+      byId("runDecisionHeading").textContent = `${run.run || "Run"} decision`;
+      byId("runDecisionTitle").textContent = run.decision || "Decision not recorded";
+      byId("runDecisionCopy").textContent = run.decisionCopy || (run.decision ? "Saved when this run was evaluated." : "No saved decision is available for this run.");
+      byId("runDecisionDialog").showModal();
+    }
+
+    function syncDefaultSpecInputs() {
+      const values = {defaultSpecPeaks:defaultSpecs.peaks, defaultSpecTime:defaultSpecs.time, defaultSpecRs:defaultSpecs.rs, defaultSpecPressure:defaultSpecs.pressure};
+      for (const [id, value] of Object.entries(values)) {
+        const input = byId(id);
+        if (input) input.value = value;
+      }
+    }
+
+    function readDefaultSpecs() {
+      const specs = {
+        peaks: readNumber("defaultSpecPeaks"),
+        time: readNumber("defaultSpecTime"),
+        rs: readNumber("defaultSpecRs"),
+        pressure: readNumber("defaultSpecPressure")
+      };
+      if (specs.peaks < 1 || !Number.isInteger(specs.peaks)) throw new Error("Default peak count must be a positive whole number.");
+      if (specs.time <= 0 || specs.rs < 0 || specs.pressure < 0) throw new Error("Requirements must be valid nonnegative values; maximum runtime must be above zero.");
+      return specs;
+    }
+
+    function applyDefaultSpecs() {
+      try {
+        defaultSpecs = readDefaultSpecs();
+        byId("specPeaks").value = defaultSpecs.peaks;
+        byId("specTime").value = defaultSpecs.time;
+        byId("specRs").value = defaultSpecs.rs;
+        byId("specPressure").value = defaultSpecs.pressure;
+        const editor = byId("defaultSpecsEditor");
+        if (editor) editor.classList.add("hidden");
+        renderSpecs(defaultSpecs);
+        byId("inputStatus").textContent = "Requirements updated";
+      } catch (error) {
+        byId("inputError").textContent = error.message;
+        byId("inputError").classList.remove("hidden");
+      }
+    }
+
+    function resetDefaultSpecs() {
+      defaultSpecs = {...DEFAULT_SPECS};
+      const editor = byId("defaultSpecsEditor");
+      if (editor) syncDefaultSpecInputs();
+      byId("specPeaks").value = defaultSpecs.peaks;
+      byId("specTime").value = defaultSpecs.time;
+      byId("specRs").value = defaultSpecs.rs;
+      byId("specPressure").value = defaultSpecs.pressure;
+      renderSpecs(defaultSpecs);
+      byId("inputStatus").textContent = "Requirements reset";
+      if (editor) editor.classList.add("hidden");
+      byId("inputError").classList.add("hidden");
+    }
+
+    function readNumber(id, optional = false) {
+      const raw = byId(id).value.trim();
+      if (raw === "" && optional) return null;
+      if (raw === "") throw new Error(`${labelFor(id)} is required.`);
+      const value = Number(raw);
+      if (!Number.isFinite(value)) throw new Error(`${labelFor(id)} must be a valid number.`);
+      return value;
+    }
+
+    function labelFor(id) {
+      const labels = {peakCount:"Peak count",runTime:"Last peak retention time",resolution:"Resolution (min)",pressure:"Backpressure",currentB:"Current %B",minimumB:"Minimum %B",previousB:"Previous %B",currentTemp:"Temperature",flow:"Flow",specPeaks:"Required peak count",specTime:"Maximum run time",specRs:"Minimum resolution",specPressure:"Maximum backpressure",targetT1:"Temperature 1",targetT2:"Temperature 2",secondSolventB:"Second-solvent converted %B",targetLogK:"Target log k"};
+      return labels[id] || id;
+    }
+
+    function normalizeName(value) {
+      return String(value ?? "").trim().replace(/\s+/g, "").toLowerCase();
+    }
+
+    function canonicalizeSolvent(value) {
+      const cleaned = String(value ?? "").trim();
+      if (!cleaned) return "";
+      const combined = cleaned.includes("/") ? cleaned : cleaned;
+      const candidates = combined.split("/").map(part => part.trim()).filter(Boolean);
+      const normalizedCandidates = candidates.map(part => normalizeName(part).replace(/[^a-z0-9]/g, ""));
+      const aliases = {
+        methanol:"MeOH", meoh:"MeOH", acn:"ACN", acetonitrile:"ACN", water:"Water",
+        meohwater:"MeOH / water", acnwater:"ACN / water", methanolwater:"MeOH / water"
+      };
+      for (const candidate of normalizedCandidates) {
+        if (aliases[candidate]) return aliases[candidate];
+      }
+      const first = candidates[0] || cleaned;
+      if (/^meoh$/i.test(first) || /^methanol$/i.test(first)) return "MeOH";
+      if (/^acn$/i.test(first) || /^acetonitrile$/i.test(first)) return "ACN";
+      if (candidates.length > 1) return candidates.map((part, index) => index === 0 && /^meoh$/i.test(part) ? "MeOH" : index === 0 && /^acn$/i.test(part) ? "ACN" : part).join(" / ");
+      return cleaned;
+    }
+
+    function canonicalizeLigand(value) {
+      const cleaned = String(value ?? "").trim();
+      if (!cleaned) return "";
+      const normalized = normalizeName(cleaned).replace(/[^a-z0-9]/g, "");
+      const aliases = {bip:"BIP", c18:"C18", c18aq:"C18AQ", c18aq:"C18AQ", pfpp:"PFPP", c8:"C8", ibd:"IBD"};
+      if (aliases[normalized]) return aliases[normalized];
+      const select = byId("currentLigand");
+      if (!select) return cleaned;
+      const match = Array.from(select.options).find(option => normalizeName(option.value).replace(/[^a-z0-9]/g, "") === normalized);
+      if (match) return match.value;
+      const known = ["BIP", "C18", "C18AQ", "PFPP", "C8", "IBD"];
+      const inferred = known.find(option => normalizeName(option).replace(/[^a-z0-9]/g, "") === normalized || normalizeName(option).includes(normalized) || normalized.includes(normalizeName(option).replace(/[^a-z0-9]/g, "")));
+      return inferred || "";
+    }
+
+    function readData() {
+      const data = {
+        peaks: readNumber("peakCount"), runtime: readNumber("runTime"), resolution: readNumber("resolution"), pressure: readNumber("pressure"),
+        runLabel: importedRunLabel,
+        currentB: readNumber("currentB"), minimumB: readNumber("minimumB", true), previousB: null,
+        solvent: canonicalizeSolvent(byId("currentSolvent").value.trim()), temperature: readNumber("currentTemp"), ligand: canonicalizeLigand(byId("currentLigand").value.trim()), flow: readNumber("flow", true),
+        specs: {peaks: readNumber("specPeaks"), time: readNumber("specTime"), rs: readNumber("specRs"), pressure: readNumber("specPressure")},
+        targets: {t1: readNumber("targetT1"), t2: readNumber("targetT2"), secondSolvent: byId("secondSolvent").value.trim(), secondB: readNumber("secondSolventB", true)}
+      };
+      validateData(data);
+      return data;
+    }
+
+    function validateData(d) {
+      const nonnegative = [["Peak count",d.peaks],["Runtime",d.runtime],["Resolution",d.resolution],["Backpressure",d.pressure],["Current temperature",d.temperature]];
+      for (const [name, value] of nonnegative) if (value < 0) throw new Error(`${name} cannot be below zero.`);
+      if (!Number.isInteger(d.peaks)) throw new Error("Peak count must be a whole number.");
+      if (d.specs.peaks < 1 || !Number.isInteger(d.specs.peaks)) throw new Error("Required peak count must be a positive whole number.");
+      if (d.specs.time <= 0 || d.specs.rs < 0 || d.specs.pressure < 0) throw new Error("Specifications must be within valid nonnegative ranges; maximum runtime must be above zero.");
+      if (d.currentB < 0 || d.currentB > 100) throw new Error("Current %B must be between 0 and 100%.");
+      if (d.minimumB !== null && (d.minimumB < 0 || d.minimumB > 100)) throw new Error("Minimum %B must be between 0 and 100% when supplied.");
+      if (d.minimumB !== null && d.minimumB > d.currentB) throw new Error("Minimum %B cannot exceed current %B.");
+      if (d.previousB !== null && (d.previousB < 0 || d.previousB > 100)) throw new Error("Previous %B must be between 0 and 100%.");
+      if (d.targets.secondB !== null && (d.targets.secondB < 0 || d.targets.secondB > 100)) throw new Error("Second-solvent converted %B must be between 0 and 100%.");
+      if (d.flow !== null && d.flow < 0) throw new Error("Flow cannot be below zero.");
+      if (d.targets.t1 < 0 || d.targets.t2 < 0) throw new Error("Temperature targets cannot be below zero.");
+      if (!d.solvent || !d.ligand) throw new Error("Enter the current solvent and ligand / column so next-run conditions can be assembled.");
+    }
+
+    // Input rubric: CSV and manual values share validation; absent measurements are never inferred.
+    // CSV support accepts summary columns or one measured peak per row, extracting only supplied values.
+    function parseCSV(text) {
+      const rows = [];
+      let row = [], cell = "", quoted = false;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (char === '"' && quoted && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (char === '"') quoted = !quoted;
+        else if (char === "," && !quoted) { row.push(cell.trim()); cell = ""; }
+        else if ((char === "\n" || char === "\r") && !quoted) {
+          if (char === "\r" && text[i + 1] === "\n") i++;
+          row.push(cell.trim()); cell = "";
+          rows.push(row);
+          row = [];
+        } else cell += char;
+      }
+      if (quoted) throw new Error("CSV has an unclosed quoted field.");
+      row.push(cell.trim());
+      if (row.some(value => value !== "")) rows.push(row);
+      if (rows.filter(r => r.some(value => value !== "")).length < 2) throw new Error("CSV has no data rows. Add a header and measured values.");
+      const normalize = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+      const peakHeaderRow = rows.findIndex(r => {
+        const normalized = r.map(normalize);
+        return normalized.some(header => ["peak", "peaknumber", "peakno", "peakid"].includes(header)) &&
+          normalized.some(header => ["rtime", "rtimemin", "retentiontime", "retentiontimemin"].includes(header)) &&
+          normalized.includes("resolution");
+      });
+      const peakSectionEnd = rows.findIndex((r, index) => index > peakHeaderRow && r.some(value => normalize(value).includes("compoundresults") || normalize(value).includes("compoundresultspda")));
+      const headers = rows[peakHeaderRow >= 0 ? peakHeaderRow : 0].map(normalize);
+      const find = aliases => headers.findIndex(header => aliases.includes(header));
+      const indexes = {
+        peakId: find(["peak", "peaknumber", "peakno", "peakid"]),
+        runtime: find(["rtime", "rtimemin", "retentiontime", "retentiontimemin"]),
+        resolution: find(["resolution"]),
+        area: find(["area", "peakarea"]),
+      };
+      const numberAt = (r, index) => {
+        if (index < 0 || r[index] === undefined || r[index] === "") return null;
+        const match = String(r[index]).replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
+        const value = match ? Number(match[0]) : NaN;
+        return Number.isFinite(value) ? value : null;
+      };
+      const traceMarker = rows.findIndex(r => normalize(r[0] || "") === "lcstatustracepumpapressure");
+      const traceEnd = traceMarker >= 0 ? rows.findIndex((r,index) => index > traceMarker && normalize(r[0] || "") === "lcstatustracepumpadegasserpressure") : -1;
+      let tracePressure = null;
+      if (traceMarker >= 0 && traceEnd > traceMarker) {
+        const traceRows = rows.slice(traceMarker + 1, traceEnd);
+        const multiplierRow = traceRows.find(r => r.some(value => normalize(value).startsWith("intensitymultiplier")));
+        const multiplierLabelIndex = multiplierRow ? multiplierRow.findIndex(value => normalize(value).startsWith("intensitymultiplier")) : -1;
+        const multiplier = multiplierRow ? numberAt(multiplierRow, multiplierLabelIndex + 1) ?? numberAt(multiplierRow, multiplierLabelIndex - 1) : null;
+
+        if (multiplier !== null) {
+          const convertedPressures = [];
+          const dataStart = traceMarker + 9;
+
+          for (let index = dataStart; index < traceEnd; index++) {
+            const row = rows[index];
+            if (!row || row.every(value => value === "")) continue;
+
+            const pressureValue = numberAt(row, 1);
+            if (pressureValue === null || pressureValue < 0) continue;
+            convertedPressures.push(pressureValue * multiplier);
+          }
+
+          if (convertedPressures.length) {
+            tracePressure = convertedPressures.reduce((sum, value) => sum + value, 0) / convertedPressures.length;
+          }
+        }
+      }
+      const labelledPeakRow = rows.find(r => r.some(value => ["ofpeaks", "numberofpeaks"].includes(normalize(value))));
+      let labelledPeakCount = null;
+      if (labelledPeakRow) {
+        const labelIndex = labelledPeakRow.findIndex(value => ["ofpeaks", "numberofpeaks"].includes(normalize(value)));
+        labelledPeakCount = numberAt(labelledPeakRow, labelIndex + 1);
+        if (labelledPeakCount === null) labelledPeakCount = labelledPeakRow.map(Number).find(value => Number.isFinite(value)) ?? null;
+      }
+      const dataRows = rows.slice(peakHeaderRow >= 0 ? peakHeaderRow + 1 : 1, peakSectionEnd >= 0 ? peakSectionEnd : rows.length).filter(r => r.some(value => value !== ""));
+      const peakRows = dataRows.filter(r => {
+        if (numberAt(r, indexes.peakId) === null || numberAt(r, indexes.runtime) === null) return false;
+        if (indexes.area < 0) return true;
+        const area = numberAt(r, indexes.area);
+        return area !== null && area >= 40000;
+      });
+      const peaks = indexes.area >= 0 ? peakRows.length : labelledPeakCount ?? peakRows.length;
+      const matchingPeakRow = peaks === null ? null : peakRows.find(row => numberAt(row, indexes.peakId) === peaks);
+      const eligibleRetentionTimes = peakRows.map(r => numberAt(r, indexes.runtime)).filter(v => v !== null);
+      const summaryRuntime = eligibleRetentionTimes.length ? Math.max(...eligibleRetentionTimes) : matchingPeakRow ? numberAt(matchingPeakRow, indexes.runtime) : null;
+      const t0RetentionTimes = indexes.area >= 0 ? peakRows.filter(r => numberAt(r, indexes.area) > 40000).map(r => numberAt(r, indexes.runtime)).filter(v => v !== null) : [];
+      const t0 = t0RetentionTimes.length ? Math.min(...t0RetentionTimes) : null;
+      const resolutions = peakRows.map(r => numberAt(r, indexes.resolution)).filter(v => v !== null && v >= 0).slice(1);
+      const requiredPeaks = Number(byId("specPeaks").value);
+      const resolution = peaks !== null && peaks < requiredPeaks ? 0 : resolutions.length ? Math.min(...resolutions) : null;
+      return {peaks, runtime: summaryRuntime, resolution, pressure: roundPressure(tracePressure), t0};
+    }
+
+    function setMeasurements(values) {
+      const mapping = {peaks:"peakCount",runtime:"runTime",resolution:"resolution",pressure:"pressure"};
+      for (const [key,id] of Object.entries(mapping)) byId(id).value = values[key] ?? "";
+    }
+
+    function parseCsvRow(line) {
+      const cells = [];
+      let cell = "", quoted = false;
+      for (let index = 0; index < line.length; index++) {
+        const char = line[index];
+        if (char === '"' && quoted && line[index + 1] === '"') { cell += '"'; index++; }
+        else if (char === '"') quoted = !quoted;
+        else if (char === "," && !quoted) { cells.push(cell.trim()); cell = ""; }
+        else cell += char;
+      }
+      cells.push(cell.trim());
+      return cells;
+    }
+
+    async function readImportText(file) {
+      const extension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0];
+      if (extension === ".csv") return file.text();
+      if (extension !== ".xls" && extension !== ".xlsx") throw new Error("Choose a .csv, .xls, or .xlsx file.");
+      if (typeof XLSX === "undefined") throw new Error("Excel import is unavailable because the spreadsheet parser did not load.");
+      const workbook = XLSX.read(await file.arrayBuffer(), {type:"array"});
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      if (!firstSheet) throw new Error("The Excel workbook does not contain a worksheet.");
+      return XLSX.utils.sheet_to_csv(firstSheet, {blankrows:true});
+    }
+
+    function getValidatedSampleName(text, fileName) {
+      const rows = text.replace(/\r\n?/g, "\n").split("\n").map(parseCsvRow);
+      const normalize = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+      const labelRowIndex = rows.findIndex(row => row.some(value => normalize(value) === "samplename"));
+      let sampleName = "";
+      if (labelRowIndex >= 0) {
+        const labelColumnIndex = rows[labelRowIndex].findIndex(value => normalize(value) === "samplename");
+        sampleName = rows[labelRowIndex][labelColumnIndex + 1]?.trim() || "";
+      }
+      if (!sampleName) sampleName = rows[19]?.[1]?.trim() || "";
+      const filenameStem = fileName.replace(/\.(csv|xls|xlsx)$/i, "");
+      const matchesFileName = Boolean(sampleName) && normalize(sampleName) === normalize(filenameStem);
+      const warning = !sampleName
+        ? `CSV is missing its Sample Name in cell B20. Using the file name (${filenameStem}) for method conditions.`
+        : matchesFileName
+          ? ""
+          : `File name does not match the CSV Sample Name in cell B20 (${sampleName}). Using the file name (${filenameStem}) for method conditions.`;
+      return {sampleName:matchesFileName ? sampleName : filenameStem, warning};
+    }
+
+    function populateCurrentMethodConditions(fileName, sampleName) {
+      const filenameStem = fileName.replace(/\.(csv|xls|xlsx)$/i, "");
+      const filenameParts = filenameStem.split("-").map(value => value.trim()).filter(Boolean);
+      const sampleParts = sampleName.split("-").map(value => value.trim()).filter(Boolean);
+      const fileMetadata = parseRunMetadata(filenameStem);
+      const metadata = parseRunMetadata(sampleParts.join("-"));
+      const values = {
+        currentSolvent: canonicalizeSolvent(sampleParts[3] || fileMetadata.solvent || ""),
+        currentB: sampleParts[6] ? sampleParts[6].replace(/,/g, ".") : fileMetadata.percentB || "",
+        flow: sampleParts[7] ? sampleParts[7].replace(/,/g, ".") : fileMetadata.flow || "",
+        currentTemp: metadata.temp || fileMetadata.temp || "",
+        currentLigand: canonicalizeLigand(metadata.ligand || fileMetadata.ligand || "")
+      };
+      importedRunLabel = sampleParts[0] && sampleParts[1] ? `Group ${sampleParts[0]} - Injection ${sampleParts[1]}` : "Run (unlabelled)";
+      for (const [id, value] of Object.entries(values)) {
+        if (id === "currentLigand" || id === "currentTemp") byId(id).value = value || "";
+        else if (!byId(id)?.value?.trim?.() && value !== "") byId(id).value = value;
+      }
+      return sampleName || filenameStem;
+    }
+
+    function parseRunMetadata(sampleName) {
+      if (!sampleName) return {};
+      const parts = sampleName.split("-").map(value => value.trim());
+      const numeric = value => {
+        const match = String(value || "").replace(/,/g, ".").match(/-?\d+(?:\.\d+)?/);
+        return match ? match[0] : "";
+      };
+      const knownLigands = ["BIP", "C18", "C18AQ", "PFPP", "C8", "IBD"];
+      const dimensionIndex = parts.findIndex(value => /\d+(?:[.,]\d+)?\s*[x×]\s*\d+(?:[.,]\d+)?\s*[x×]\s*\d+(?:[.,]\d+)?/i.test(value));
+      const dimensions = String(dimensionIndex >= 0 ? parts[dimensionIndex] : parts[12] || "").split(/[x×]/i).map(numeric);
+      const candidateLigandTokens = [];
+      const ligandIndex = dimensionIndex > 0 ? dimensionIndex - 1 : 11;
+      if (parts[ligandIndex]) candidateLigandTokens.push(parts[ligandIndex]);
+      for (const token of parts) {
+        if (knownLigands.some(ligand => normalizeName(token).includes(normalizeName(ligand)))) candidateLigandTokens.push(token);
+      }
+      const ligandToken = candidateLigandTokens.find(Boolean) || String(parts[ligandIndex] || "").trim();
+      const beadCode = String(ligandToken || "").slice(-1).toUpperCase();
+      const ligandBase = String(ligandToken || "").replace(/[pu]$/i, "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+      const ligand = canonicalizeLigand(ligandBase) || knownLigands.find(value => value.toUpperCase() === ligandBase) || candidateLigandTokens.map(token => canonicalizeLigand(token)).find(Boolean) || "";
+      const temperatureToken = parts[dimensionIndex >= 0 ? dimensionIndex + 1 : 13] || "";
+      const wavelengthToken = parts[dimensionIndex >= 0 ? dimensionIndex + 2 : 14] || "";
+      const concentrationToken = parts[dimensionIndex > 1 ? dimensionIndex - 2 : 10] || "";
+      const solventToken = parts.find(token => /meoh|methanol|acn|acetonitrile|water/i.test(token)) || parts[3] || "";
+      return {
+        run: parts.slice(0, 3).filter(Boolean).join("-"),
+        ligand,
+        beadType: beadCode === "P" ? "Pinnacle" : beadCode === "U" ? "Ultra" : "",
+        solvent: canonicalizeSolvent(solventToken),
+        percentB: numeric(parts[6]),
+        flow: numeric(parts[7]),
+        sampleConc: numeric(concentrationToken),
+        length: dimensions[0] || "",
+        diameter: dimensions[1] || "",
+        particleSize: dimensions[2] || "",
+        temp: String(temperatureToken).trim().toLowerCase() === "amb" ? "25" : numeric(temperatureToken),
+        wavelength: numeric(wavelengthToken)
+      };
+    }
+
+    function addImportedRun(sampleName, parsed) {
+      const sequence = nextRunLabel();
+      const id = `run-${nextRunNumber++}`;
+      const metadata = parseRunMetadata(sampleName);
+      runRows.push({
+        id, run: sequence, runNumberManual: false, sampleName: sampleName || "",
+        ligand: metadata.ligand || "", beadType: metadata.beadType || "", coreshell: "", poreSize: "", cLoad: "",
+        length: metadata.length || "", diameter: metadata.diameter || "", particleSize: metadata.particleSize || "",
+        solvent: metadata.solvent || "", percentB: metadata.percentB || "", flow: metadata.flow || "",
+        sampleConc: metadata.sampleConc || "", temp: metadata.temp || "", wavelength: metadata.wavelength || "", measuredTemp: "",
+        peaks: parsed.peaks ?? "", runtime: parsed.runtime ?? "", resolution: parsed.resolution ?? "", pressure: parsed.pressure ?? "", t0: parsed.t0 ?? "",
+        decision: "", decisionCopy: ""
+      });
+      pendingDecisionRunId = id;
+      saveRunRows();
+      renderRunSummary();
+      updateMinimumBAnalysis();
+    }
+
+    function nextRunLabel() {
+      const usedNumbers = new Set(runRows.map(run => /^R(\d+)$/i.exec(String(run.run || ""))).filter(Boolean).map(match => Number(match[1])));
+      let number = 1;
+      while (usedNumbers.has(number)) number++;
+      return `R${String(number).padStart(2, "0")}`;
+    }
+
+    function moveRunRow(runId, direction) {
+      const currentIndex = runRows.findIndex(run => run.id === runId);
+      const targetIndex = currentIndex + direction;
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= runRows.length) return;
+      [runRows[currentIndex], runRows[targetIndex]] = [runRows[targetIndex], runRows[currentIndex]];
+      saveRunRows();
+      renderRunSummary();
+      updateMinimumBAnalysis();
+    }
+
+    function addCurrentRunRow() {
+      const sequence = nextRunLabel();
+      const id = `run-${nextRunNumber++}`;
+      const value = fieldId => byId(fieldId).value.trim();
+      runRows.push({
+        id, run: sequence, runNumberManual: false, sampleName: "", ligand: value("currentLigand"), beadType: "", coreshell: "", poreSize: "", cLoad: "",
+        length: "", diameter: "", particleSize: "", solvent: value("currentSolvent"), percentB: value("currentB"), flow: value("flow"),
+        sampleConc: "", temp: "", wavelength: "", measuredTemp: value("currentTemp"), t0: "",
+        peaks: value("peakCount"), runtime: value("runTime"), resolution: value("resolution"), pressure: roundPressure(value("pressure")) ?? "",
+        decision: decisionIsCurrent && lastDecision ? lastDecision.result.title : "",
+        decisionCopy: decisionIsCurrent && lastDecision ? lastDecision.result.copy : ""
+      });
+      decisionIsCurrent = false;
+      saveRunRows();
+      renderRunSummary();
+      updateMinimumBAnalysis();
+    }
+
+    function runNumber(value) {
+      if (value === "" || value === null || value === undefined) return null;
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric : null;
+    }
+
+    function fitLogK(points) {
+      if (points.length < 2) return null;
+      const meanB = points.reduce((sum, point) => sum + point.percentB, 0) / points.length;
+      const meanLogK = points.reduce((sum, point) => sum + point.logK, 0) / points.length;
+      const sumSquaredB = points.reduce((sum, point) => sum + (point.percentB - meanB) ** 2, 0);
+      const sumSquaredLogK = points.reduce((sum, point) => sum + (point.logK - meanLogK) ** 2, 0);
+      if (sumSquaredB === 0 || sumSquaredLogK === 0) return null;
+      const slope = points.reduce((sum, point) => sum + (point.percentB - meanB) * (point.logK - meanLogK), 0) / sumSquaredB;
+      const intercept = meanLogK - slope * meanB;
+      const residualSum = points.reduce((sum, point) => sum + (point.logK - (slope * point.percentB + intercept)) ** 2, 0);
+      const rSquared = Math.max(0, Math.min(1, 1 - residualSum / sumSquaredLogK));
+      return {slope, intercept, rSquared};
+    }
+
+    function selectMinimumBFit(points) {
+      let bestAvailable = null;
+      for (let removedCount = 0; removedCount <= points.length - 2; removedCount++) {
+        let bestMeetingThreshold = null;
+        const excludedIndexes = [];
+        function inspectCombinations(startIndex, remaining) {
+          if (remaining === 0) {
+            const excluded = new Set(excludedIndexes);
+            const includedPoints = points.filter((point, index) => !excluded.has(index));
+            const fit = fitLogK(includedPoints);
+            if (!fit) return;
+            const candidate = {points:includedPoints, fit, removedCount};
+            if (!bestAvailable || fit.rSquared > bestAvailable.fit.rSquared || (fit.rSquared === bestAvailable.fit.rSquared && removedCount < bestAvailable.removedCount)) bestAvailable = candidate;
+            if (fit.rSquared >= 0.99 && (!bestMeetingThreshold || fit.rSquared > bestMeetingThreshold.fit.rSquared)) bestMeetingThreshold = candidate;
+            return;
+          }
+          for (let index = startIndex; index <= points.length - remaining; index++) {
+            excludedIndexes.push(index);
+            inspectCombinations(index + 1, remaining - 1);
+            excludedIndexes.pop();
+          }
+        }
+        inspectCombinations(0, removedCount);
+        if (bestMeetingThreshold) return {...bestMeetingThreshold, metThreshold:true};
+      }
+      return bestAvailable ? {...bestAvailable, metThreshold:false} : null;
+    }
+
+    function renderMinimumBRunTable(records, includedIds, invalidKIds = new Set()) {
+      byId("minimumBRunRows").innerHTML = records.map(record => {
+        let retentionFactor = null, logK = null;
+        if (!record.nonAmbient && !record.excluded90 && record.t0 !== null && record.t0 > 0 && record.runtime !== null) {
+          retentionFactor = (record.runtime - record.t0) / record.t0;
+          if (retentionFactor > 0) logK = Math.log10(retentionFactor);
+        }
+        const status = record.nonAmbient ? "Excluded: temperature is not 25 °C" : record.excluded90 ? "Excluded: %B = 90" : invalidKIds.has(record.run.id) ? "Invalid K" : includedIds.has(record.run.id) ? "Included in fit" : "Removed to meet R²";
+        return `<tr><td>${escapeHTML(record.run.run)}</td><td>${record.percentB === null ? "" : record.percentB}</td><td>${record.t0 === null ? "" : record.t0}</td><td>${record.runtime === null ? "" : record.runtime}</td><td>${retentionFactor === null ? "" : retentionFactor.toFixed(6)}</td><td>${logK === null ? "" : logK.toFixed(6)}</td><td>${status}</td><td><button class="secondary" type="button" data-delete-minimum-b-run="${escapeHTML(record.run.id)}" aria-label="Delete run ${escapeHTML(record.run.run)}">Delete</button></td></tr>`;
+      }).join("");
+    }
+
+    function renderMinimumBChart(points, fit) {
+      const svg = byId("minimumBChart");
+      const width = 640, height = 320, left = 58, right = 18, top = 18, bottom = 48;
+      const plotWidth = width - left - right, plotHeight = height - top - bottom;
+      const minB = Math.min(...points.map(point => point.percentB));
+      const maxB = Math.max(...points.map(point => point.percentB));
+      const predicted = [fit.slope * minB + fit.intercept, fit.slope * maxB + fit.intercept];
+      const logs = [...points.map(point => point.logK), ...predicted];
+      const minLog = Math.min(...logs), maxLog = Math.max(...logs);
+      const xPadding = (maxB - minB) * 0.08 || 1;
+      const yPadding = (maxLog - minLog) * 0.12 || 0.1;
+      const xMin = minB - xPadding, xMax = maxB + xPadding;
+      const yMin = minLog - yPadding, yMax = maxLog + yPadding;
+      const x = value => left + (value - xMin) / (xMax - xMin) * plotWidth;
+      const y = value => top + (yMax - value) / (yMax - yMin) * plotHeight;
+      const grid = Array.from({length:5}, (_, index) => {
+        const fraction = index / 4;
+        const tickY = top + fraction * plotHeight;
+        const logValue = yMax - fraction * (yMax - yMin);
+        const tickX = left + fraction * plotWidth;
+        const bValue = xMin + fraction * (xMax - xMin);
+        return `<line class="grid-line" x1="${left}" y1="${tickY}" x2="${width-right}" y2="${tickY}"/><text x="${left-8}" y="${tickY+3}" text-anchor="end">${logValue.toFixed(2)}</text><line class="grid-line" x1="${tickX}" y1="${top}" x2="${tickX}" y2="${height-bottom}"/><text x="${tickX}" y="${height-bottom+18}" text-anchor="middle">${bValue.toFixed(1)}</text>`;
+      }).join("");
+      const pointsMarkup = points.map(point => `<circle class="fit-point" cx="${x(point.percentB)}" cy="${y(point.logK)}" r="5"><title>${escapeHTML(point.run)}</title></circle>`).join("");
+      svg.innerHTML = `<title>Log10 retention factor versus percent B</title><desc>Linear regression using ${points.length} included runs.</desc>${grid}<line class="axis-line" x1="${left}" y1="${height-bottom}" x2="${width-right}" y2="${height-bottom}"/><line class="axis-line" x1="${left}" y1="${top}" x2="${left}" y2="${height-bottom}"/><line class="fit-line" x1="${x(minB)}" y1="${y(predicted[0])}" x2="${x(maxB)}" y2="${y(predicted[1])}"/>${pointsMarkup}<text x="${left+plotWidth/2}" y="${height-6}" text-anchor="middle">%B</text><text x="15" y="${top+plotHeight/2}" text-anchor="middle" transform="rotate(-90 15 ${top+plotHeight/2})">log10(K)</text>`;
+    }
+
+    function updateMinimumBAnalysis() {
+      const status = byId("minimumBStatus");
+      const resultPanel = byId("minimumBResult");
+      const stats = byId("minimumBStats");
+      const records = runRows.filter(run => !excludedMinimumBRunIds.has(run.id)).map(run => {
+        const percentB = runNumber(run.percentB);
+        const temperature = runNumber(run.temp);
+        return {run, percentB, temperature, t0:runNumber(run.t0), runtime:runNumber(run.runtime), excluded90:percentB === 90, nonAmbient:temperature !== 25};
+      });
+      const ambientRecords = records.filter(record => !record.nonAmbient);
+      resultPanel.hidden = records.length === 0;
+      stats.innerHTML = "";
+      byId("minimumBChart").innerHTML = "";
+      const fail = message => {
+        status.textContent = message;
+        renderMinimumBRunTable(records, new Set());
+      };
+      const requiredPercentB = [90,80,70,60,50,40];
+      const missingPercentB = requiredPercentB.filter(requiredB => !ambientRecords.some(record => record.percentB !== null && Math.abs(record.percentB - requiredB) < 1e-9));
+      if (missingPercentB.length) return fail(`Record ambient runs at ${missingPercentB.join(", ")}% B before constructing the Minimum %B graph.`);
+      if (ambientRecords.length < 2) return fail("At least two ambient runs must remain in the Minimum %B regression.");
+      const fitRecords = ambientRecords.filter(record => !record.excluded90);
+      if (fitRecords.length < 2) return fail("At least two runs must remain after excluding runs at 90% B.");
+      const missingData = fitRecords.filter(record => record.percentB === null || record.t0 === null || record.runtime === null);
+      if (missingData.length) return fail(`Re-upload CSV data for runs missing %B, first-peak t0, or last-peak tR: ${missingData.map(record => record.run.run).join(", ")}.`);
+      const invalidT0Records = fitRecords.filter(record => record.t0 <= 0);
+      if (invalidT0Records.length) return fail(`Each t0 must be greater than zero. Check runs: ${invalidT0Records.map(record => record.run.run).join(", ")}.`);
+      const invalidKRecords = fitRecords.filter(record => (record.runtime - record.t0) / record.t0 <= 0);
+      if (invalidKRecords.length) return fail(`K must be positive before log10(K) can be calculated. Check runs: ${invalidKRecords.map(record => record.run.run).join(", ")}.`);
+      const points = fitRecords.map(record => ({run:record.run.run, runId:record.run.id, percentB:record.percentB, t0:record.t0, logK:Math.log10((record.runtime - record.t0) / record.t0)}));
+      const selected = selectMinimumBFit(points);
+      if (!selected) return fail("Could not fit a line: %B or log10(K) has no variation.");
+      const includedIds = new Set(selected.points.map(point => point.runId));
+      const invalidKIds = new Set(invalidKRecords.map(record => record.run.id));
+      renderMinimumBRunTable(records, includedIds, invalidKIds);
+      renderMinimumBChart(selected.points, selected.fit);
+      const maximumRuntime = runNumber(byId("specTime").value);
+      if (maximumRuntime === null || maximumRuntime <= 0) return fail("Enter a valid maximum run time to calculate Minimum %B.");
+      const minimumBEstimates = selected.points.map(point => {
+        const k = (maximumRuntime - point.t0) / point.t0;
+        return k > 0 ? (Math.log10(k) - selected.fit.intercept) / selected.fit.slope : null;
+      });
+      if (minimumBEstimates.some(value => value === null)) return fail("Maximum run time must exceed t0 for every run included in the regression to calculate Minimum %B.");
+      if (minimumBEstimates.some(value => !Number.isFinite(value))) return fail("The regression slope is zero; Minimum %B cannot be calculated.");
+      const rawMinimumB = Math.min(...minimumBEstimates);
+      const roundedMinimumB = Math.ceil(rawMinimumB);
+      const currentB = runNumber(byId("currentB").value);
+      const minimumBExceedsCurrent = selected.metThreshold && currentB !== null && roundedMinimumB > currentB;
+      const statsEntries = [["Slope",selected.fit.slope.toFixed(6)],["Intercept",selected.fit.intercept.toFixed(6)],["R²",selected.fit.rSquared.toFixed(6)],["Minimum %B",selected.metThreshold && !minimumBExceedsCurrent ? `${roundedMinimumB}%` : "Not calculated"]];
+      stats.innerHTML = statsEntries.map(([label,value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join("");
+      if (!selected.metThreshold) return status.textContent = `Best fit R² is ${selected.fit.rSquared.toFixed(6)}, below 0.99. Even the best subset of ${selected.points.length} runs does not meet the threshold; Minimum %B was not updated.`;
+      if (minimumBExceedsCurrent) return status.textContent = `Calculated Minimum %B (${roundedMinimumB}%) exceeds current %B (${currentB}%); Minimum %B was not shown or updated.`;
+      if (roundedMinimumB < 0 || roundedMinimumB > 100) return status.textContent = `R² ${selected.fit.rSquared.toFixed(6)} meets the threshold, but the calculated Minimum %B (${roundedMinimumB}%) is outside 0–100%; the field was not updated.`;
+      byId("minimumB").value = String(roundedMinimumB);
+      saveCalculatedMinimumB(roundedMinimumB);
+      const removedRuns = points.filter(point => !includedIds.has(point.runId)).map(point => point.run);
+      status.textContent = `R² ${selected.fit.rSquared.toFixed(6)} meets the 0.99 threshold. ${removedRuns.length ? `Removed ${removedRuns.length} run(s) from the fit: ${removedRuns.join(", ")}.` : "No runs needed removal."} Minimum %B is rounded to ${roundedMinimumB}%.`;
+    }
+
+    function parsePairs(text, expectedColumns, name) {
+      const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      if (lines.length < 2) throw new Error(`${name} needs a header and at least one data row.`);
+      const delimiter = lines[0].includes("\t") ? "\t" : ",";
+      const table = lines.map(line => line.split(delimiter).map(value => value.trim()));
+      if (table.some(row => row.length !== table[0].length)) throw new Error(`${name} rows must have the same number of columns.`);
+      const records = table.slice(1).map(row => row.map(Number));
+      if (records.some(row => row.some(value => !Number.isFinite(value)))) throw new Error(`${name} must contain numeric values only after the header.`);
+      if (expectedColumns && table[0].length !== expectedColumns) throw new Error(`${name} needs exactly ${expectedColumns} columns.`);
+      return {headers:table[0], records};
+    }
+
+    function intermediateBFromLogK(data) {
+      const raw = byId("logKData").value.trim();
+      const targetRaw = byId("targetLogK").value.trim();
+      if (!raw || targetRaw === "") return null;
+      const target = Number(targetRaw);
+      if (!Number.isFinite(target)) throw new Error("Target log k must be a valid number.");
+      const table = parsePairs(raw, null, "Log k calibration");
+      if (table.headers.length < 2) throw new Error("Log k calibration needs a %B column and at least one compound column.");
+      const rows = table.records;
+      if (rows.length < 2) throw new Error("Log k calibration needs at least two measured %B points.");
+      const estimates = [];
+      for (let col = 1; col < table.headers.length; col++) {
+        const xs = rows.map(row => row[0]), ys = rows.map(row => row[col]);
+        const meanX = xs.reduce((a,b)=>a+b,0)/xs.length, meanY = ys.reduce((a,b)=>a+b,0)/ys.length;
+        const denominator = xs.reduce((sum,x)=>sum+(x-meanX)**2,0);
+        if (denominator === 0) throw new Error("Log k calibration needs distinct %B values.");
+        const slope = xs.reduce((sum,x,i)=>sum+(x-meanX)*(ys[i]-meanY),0)/denominator;
+        if (Math.abs(slope) < 1e-12) throw new Error(`Cannot derive %B: ${table.headers[col]} has no measurable log k slope.`);
+        const intercept = meanY - slope * meanX;
+        estimates.push((target - intercept) / slope);
+      }
+      const estimate = estimates.reduce((a,b)=>a+b,0)/estimates.length;
+      const lowerBound = data.minimumB ?? 0;
+      if (estimates.some(value => value < lowerBound || value > data.currentB)) return {unavailable:true, explanation:"At least one compound's target log k estimate falls outside the configured %B range; no intermediate option is offered."};
+      return {value:estimate, explanation:`Derived from the mean of ${estimates.length} per-compound linear log k vs %B estimates for target log k ${target}.`};
+    }
+
+    function expectedRuntime(candidateB, originalRuntime = null, decisionTitle = "") {
+      if (decisionTitle === "Decrease %B by 10%" && Number.isFinite(originalRuntime)) return Math.round(originalRuntime * 2);
+      const raw = byId("rtCalibration").value.trim();
+      if (!raw) return null;
+      const table = parsePairs(raw, 2, "Runtime calibration");
+      const points = table.records.slice().sort((a,b)=>a[0]-b[0]);
+      if (points.some(point => point[0] < 0 || point[0] > 100 || point[1] < 0)) throw new Error("Runtime calibration %B must be 0-100 and runtime must be nonnegative.");
+      for (let i = 1; i < points.length; i++) if (points[i][0] === points[i-1][0]) throw new Error("Runtime calibration must not repeat a %B value.");
+      const exact = points.find(point => point[0] === candidateB);
+      if (exact) return Math.round(exact[1]);
+      for (let i = 1; i < points.length; i++) {
+        const [x0,y0] = points[i-1], [x1,y1] = points[i];
+        if (candidateB > x0 && candidateB < x1) return Math.round(y0 + (candidateB-x0)*(y1-y0)/(x1-x0));
+      }
+      return null;
+    }
+
+    function nextSelectivity(d) {
+      const nextTemperature = [d.targets.t1,d.targets.t2].find(target => Number.isFinite(target) && Math.abs(target - d.temperature) > 1e-9);
+      if (nextTemperature === undefined) return {title:"Choose another selectivity parameter", kind:"missing", explanation:"The current temperature already matches all configured temperature targets. Select another solvent or ligand condition."};
+      const alreadyAtFirstTarget = Math.abs(d.temperature - d.targets.t1) <= 1e-9;
+      const explanation = alreadyAtFirstTarget
+        ? `The current temperature is already ${d.temperature} °C; continue the temperature screen at ${nextTemperature} °C.`
+        : "Start with a temperature screen on the current solvent; temperature can change selectivity and efficiency.";
+      return {title:`Set temperature to ${nextTemperature} °C`, kind:"temperature", value:nextTemperature, solvent:d.solvent, explanation};
+    }
+
+    function temperatureScreenComplete(d) {
+      const targets = [d.targets.t1, d.targets.t2].filter(Number.isFinite);
+      return targets.length > 0 && Math.abs(d.temperature - Math.max(...targets)) <= 1e-9;
+    }
+
+    function solventChangeRecommendation(d) {
+      const currentIsMethanol = /^meoh(?:\s*\/|$)/i.test(String(d.solvent || ""));
+      const solvent = currentIsMethanol ? "ACN" : "MeOH";
+      const nextB = Number.isFinite(d.currentB) ? (currentIsMethanol ? Math.max(0, d.currentB - 10) : Math.min(100, d.currentB + 10)) : null;
+      const solventName = currentIsMethanol ? "ACN" : "methanol";
+      const direction = currentIsMethanol ? "- 10 percentage points" : "+ 10 percentage points";
+      return {currentIsMethanol, solvent, nextB, solventName, direction};
+    }
+
+    function chromatogramComparisonText(d) {
+      const minimumRuns = runRows.filter(run => {
+        const percentB = runNumber(run.percentB);
+        return percentB !== null && d.minimumB !== null && Math.abs(percentB - d.minimumB) <= 1e-9;
+      }).map(run => run.run || run.id);
+      const temperatureRuns = runRows.filter(run => {
+        const temperature = runNumber(run.measuredTemp || run.temp);
+        return temperature !== null && Math.abs(temperature - 40) <= 1e-9;
+      }).map(run => run.run || run.id);
+      const minimumLabel = minimumRuns.length ? minimumRuns.join(", ") : "the run-table entry at Minimum %B";
+      const temperatureLabel = temperatureRuns.length ? temperatureRuns.join(", ") : "the 40 °C run";
+      return `OBSERVE: compare the chromatograms from ${minimumLabel} and ${temperatureLabel}. The user must decide whether the worst overlapping peak pair is more separated at 40 °C.`;
+    }
+
+    function convertedSolventRecommendation(d) {
+      const configuredSolvent = String(d.targets.secondSolvent || "").trim();
+      if (configuredSolvent && d.targets.secondB !== null) {
+        return {solvent:canonicalizeSolvent(configuredSolvent), solventName:configuredSolvent, nextB:d.targets.secondB, explanation:`Use the converted ${configuredSolvent} condition at ${d.targets.secondB}% B from the configured conversion.`};
+      }
+      const fallback = solventChangeRecommendation(d);
+      return {solvent:fallback.solvent, solventName:fallback.solventName, nextB:fallback.nextB, explanation:`Use ${fallback.solventName} at ${fallback.nextB}% B, calculated as the current %B ${fallback.direction}.`};
+    }
+
+    function conditionSet(d, changes = {}) {
+      return {b:changes.b ?? d.currentB, temp:changes.temp ?? d.temperature, solvent:changes.solvent ?? d.solvent, ligand:changes.ligand ?? d.ligand, flow:d.flow, other:changes.other || "No other change"};
+    }
+
+    // Flowchart rubric: pressure gate, then retention for low peak count, then selectivity; efficiency follows exhaustion.
+    function decisionFor(d) {
+      const checks = [];
+      checks.push(`Backpressure ${formatPressure(d.pressure)} psi vs maximum ${formatPressure(d.specs.pressure)} psi.`);
+      if (d.pressure > d.specs.pressure) return {status:"fail", title:"RUN FAILURE", copy:"Backpressure exceeds the configured maximum. Stop here: no retention or selectivity tests are applied.", conditions:conditionSet(d,{other:"Do not run; investigate pressure cause"}), checks, action:null};
+      if (d.peaks === 0) return {status:"warn", title:"No peaks detected", copy:"No peaks were reported in the supplied measurements. Check the chromatogram export, acquisition and integration before changing method conditions.", conditions:conditionSet(d,{other:"Check data and integration; no change recommended"}), checks:[...checks,"Peak count is zero; retention and selectivity recommendations are not applied."], action:null};
+      if (d.peaks > d.specs.peaks) return {status:"warn", title:"Peak count exceeds specification", copy:`${d.peaks} peaks were reported; the configured requirement is exactly ${d.specs.peaks}. Confirm integration and method specifications before changing conditions.`, conditions:conditionSet(d,{other:"Verify integration and specifications"}), checks:[...checks,`Peak count ${d.peaks} is above required count ${d.specs.peaks}.`], action:null};
+      if (d.peaks < d.specs.peaks) {
+        checks.push(`Peak count ${d.peaks} is below required ${d.specs.peaks}; assess retention before selectivity.`);
+        const currentAtMinimumB = d.minimumB !== null && Math.abs(d.currentB - d.minimumB) <= 1e-9;
+        if (currentAtMinimumB) {
+          const temperatureTargets = [d.targets.t1, d.targets.t2].filter(Number.isFinite);
+          const highestTemperature = temperatureTargets.length ? Math.max(...temperatureTargets) : null;
+          if (Math.abs(d.temperature - 40) <= 1e-9) {
+            const solventChange = convertedSolventRecommendation(d);
+            const comparison = chromatogramComparisonText(d);
+            const nextTemperature = temperatureTargets.includes(60) ? 60 : 60;
+            const temperatureConditions = conditionSet(d,{temp:nextTemperature,other:"Preserve all other conditions; use if 40 °C improves separation"});
+            const solventConditions = conditionSet(d,{b:solventChange.nextB,temp:d.temperature,solvent:solventChange.solvent,other:"Preserve all other conditions; use if selectivity does not improve"});
+            if (solventChange.nextB === null) solventConditions.b = null;
+            return {
+              status:"warn",
+              title:"Minimum %B and 40 °C: OBSERVE",
+              copy:`${comparison} If the 40 °C run separates the worst overlapping peak pair more, continue to 60 °C. If selectivity does not improve at 40 °C, it will not improve at 60 °C; choose the solvent change instead.`,
+              hideSplitIntroCopy:true,
+              conditions:temperatureConditions,
+              checks:[...checks,`Current %B ${d.currentB}% equals Minimum %B ${d.minimumB}%.`,comparison,"The user must make the selectivity comparison from the chromatograms."],
+              splitDecisions:true,
+              options:[
+                {title:"Next run: 60 °C",reason:"Choose this if the 40 °C chromatogram separates the worst overlapping peak pair more than the Minimum %B chromatogram. Preserve all other conditions.",conditions:temperatureConditions,allowSelection:false},
+                {title:`Next run: Change solvent to ${solventChange.solventName}`,reason:`Choose this if selectivity does not improve at 40 °C; if it does not improve at 40 °C, it will not improve at 60 °C. ${solventChange.explanation} Preserve all other conditions.`,conditions:solventConditions,allowSelection:false}
+              ],
+              action:null
+            };
+          }
+          if (highestTemperature !== null && d.temperature >= highestTemperature) {
+            const solventChange = solventChangeRecommendation(d);
+            const conditions = conditionSet(d,{b:solventChange.nextB,temp:"Ambient",solvent:solventChange.solvent,other:"Change only solvent and %B"});
+            if (solventChange.nextB === null) conditions.b = null;
+            return {
+              status:"warn",
+              title:`Change Solvent to ${solventChange.currentIsMethanol ? "ACN" : "Methanol"}`,
+              copy:solventChange.nextB === null
+                ? `The required peak count was not reached at ${d.temperature} °C, and the temperature screen is complete. Change the solvent to ${solventChange.solventName}, then enter a valid current %B to calculate the next-run condition.`
+                : `The required peak count was not reached at ${d.temperature} °C, and the temperature screen is complete. Change the solvent to ${solventChange.solventName} at ${solventChange.nextB}% B (current %B ${solventChange.direction}), then re-evaluate peak count.`,
+              conditions,
+              checks:[...checks,`Current temperature ${d.temperature} °C has completed the temperature screen.`,`Peak count remains below required ${d.specs.peaks}.`,...(solventChange.nextB === null ? [] : [`${solventChange.solventName} next-run %B: ${d.currentB}% ${solventChange.direction} = ${solventChange.nextB}%.`])],
+              options:[],
+              action:solventChange.nextB === null ? null : {kind:"solvent",solvent:solventChange.solvent,value:solventChange.nextB,explanation:`Use ${solventChange.solventName} at ${solventChange.nextB}% B, calculated as the current %B ${solventChange.direction}.`}
+            };
+          }
+          const temperature = 40;
+          const conditions = conditionSet(d,{temp:temperature,other:"Choose either the 40 °C temperature screen or an observed intermediate %B run"});
+          return {
+            status:"warn",
+            title:"Increase temperature to 40 °C or run intermediate",
+            copy:`Current %B equals the Minimum %B of ${d.minimumB}%, so %B cannot be decreased further. Choose a 40 °C run or run an intermediate condition observed from previous chromatograms.`,
+            conditions,
+            checks:[...checks,`Current %B ${d.currentB}% equals Minimum %B ${d.minimumB}%.`,"Further %B reduction is not permitted.","Intermediate %B cannot be calculated automatically; observe previous chromatograms to choose it."],
+            splitDecisions:true,
+            options:[
+              {title:"Increase temperature to 40 °C",reason:`Run the current ${d.currentB}% B condition at 40 °C.`,conditions:conditionSet(d,{temp:temperature,other:"Temperature screen at 40 °C"}),allowSelection:false},
+              {title:"Run intermediate",reason:"The intermediate %B must be determined by looking at previous runs and observing the chromatograms; this app does not calculate it.",conditions:conditionSet(d,{b:"OBSERVE",other:"Choose the intermediate %B from previous chromatograms"}),allowSelection:false}
+            ],
+            action:null
+          };
+        }
+        if (d.runtime > d.specs.time) {
+          const selection = nextSelectivity(d);
+          const conditions = conditionSet(d,{b:d.previousB === null ? d.currentB : d.previousB, other:"Restore previous %B, then change selectivity"});
+          if (d.previousB === null) conditions.other = "Previous %B not supplied; cannot assemble restoration";
+          if (selection && selection.kind !== "missing") Object.assign(conditions, selection.kind === "temperature" ? {temp:selection.value,solvent:selection.solvent || d.solvent,other:"Restore %B; advance selectivity screen"} : selection.kind === "solvent" ? {b:selection.value,solvent:selection.solvent,other:"Restore retention; advance solvent screen"} : selection.kind === "ligand" ? {ligand:selection.value,other:"Restore %B; advance ligand screen"} : {});
+          return {status:"warn", title:"Restore %B; move to selectivity", copy:d.previousB === null ? "Runtime is beyond the limit. Enter the previous %B to assemble the restoration condition, then proceed to a selectivity change instead of further retention changes." : `Runtime ${d.runtime} min exceeds ${d.specs.time} min. Restore %B to ${d.previousB}% and continue with the selectivity screen. ${selection.explanation}`, conditions, checks:[...checks,`Runtime ${d.runtime} min is beyond ${d.specs.time} min.`,selection.explanation], action:selection, options:[]};
+        }
+        if (temperatureScreenComplete(d)) {
+          const solventChange = solventChangeRecommendation(d);
+          const conditions = conditionSet(d,{b:solventChange.nextB,temp:"Ambient",solvent:solventChange.solvent,other:"Change only solvent and %B"});
+          if (solventChange.nextB === null) {
+            conditions.b = null;
+            return {status:"warn", title:`Change Solvent to ${solventChange.currentIsMethanol ? "ACN" : "Methanol"}`, copy:`The required peak count was not reached at ${d.targets.t1} °C or ${d.targets.t2} °C. Change the solvent to ${solventChange.solventName}, then enter a valid current %B to calculate the next-run condition.`, conditions, checks:[...checks,`Temperature screen complete at ${d.targets.t1} °C and ${d.targets.t2} °C.`,`Peak count remains below required ${d.specs.peaks}.`], options:[], action:{kind:"solvent",solvent:solventChange.solvent,explanation:`Change to ${solventChange.solventName} and adjust %B by ${solventChange.direction}.`}};
+          }
+          return {status:"warn", title:`Change Solvent to ${solventChange.currentIsMethanol ? "ACN" : "Methanol"}`, copy:`The required peak count was not reached at ${d.targets.t1} °C or ${d.targets.t2} °C. Change the solvent to ${solventChange.solventName} at ${solventChange.nextB}% B (current %B ${solventChange.direction}), then re-evaluate peak count.`, conditions, checks:[...checks,`Temperature screen complete at ${d.targets.t1} °C and ${d.targets.t2} °C.`,`Peak count remains below required ${d.specs.peaks}.`,`${solventChange.solventName} next-run %B: ${d.currentB}% ${solventChange.direction} = ${solventChange.nextB}%.`], options:[], action:{kind:"solvent",solvent:solventChange.solvent,value:solventChange.nextB,explanation:`Use ${solventChange.solventName} at ${solventChange.nextB}% B, calculated as the current %B ${solventChange.direction}.`}};
+        }
+        const requestedB = d.currentB - 10;
+        const lowerBound = d.minimumB ?? 0;
+        const proposed = Math.max(lowerBound, requestedB);
+        const clipped = proposed > requestedB;
+        const predictedRuntime = !clipped ? expectedRuntime(proposed, d.runtime, "Decrease %B by 10%") : null;
+        if (!clipped && predictedRuntime !== null && predictedRuntime > d.specs.time) {
+          if (d.minimumB === null) {
+            const conditions = conditionSet(d,{b:null,other:"Set a method minimum %B before continuing"});
+            return {status:"warn", title:"Set Minimum %B", copy:`A 10 percentage-point decrease is predicted to increase runtime to ${predictedRuntime} min, exceeding the ${d.specs.time} min limit. Enter a validated method minimum %B before selecting the next retention condition.`, conditions, checks:[...checks,`Predicted runtime after decreasing %B: ${predictedRuntime} min.`,`Predicted runtime exceeds the ${d.specs.time} min limit.`], options:[], action:null};
+          }
+          const conditions = conditionSet(d,{b:d.minimumB,other:"Run at Minimum %B, then re-evaluate peak count"});
+          return {status:"warn", title:"Run minimum %B", copy:`A 10 percentage-point decrease is predicted to increase runtime to ${predictedRuntime} min, exceeding the ${d.specs.time} min limit. Run at the validated Minimum %B of ${d.minimumB}% and re-evaluate peak count.`, conditions, checks:[...checks,`Predicted runtime after decreasing %B: ${predictedRuntime} min.`,`Predicted runtime exceeds the ${d.specs.time} min limit.`], options:[], action:null};
+        }
+        return {status:"good", title:clipped ? `Decrease %B to minimum ${lowerBound}%` : "Decrease %B by 10%", copy:`Peak count is below specification, while runtime ${d.runtime} min is within the ${d.specs.time} min limit. Decrease %B to increase retention${clipped ? "; subtracting 10 percentage points would cross the method minimum." : "."}`, conditions:conditionSet(d,{b:proposed,other:"Retention adjustment; re-evaluate peak count"}), checks:[...checks, predictedRuntime === null ? `Current runtime ${d.runtime} min is within the ${d.specs.time} min limit.` : `Predicted runtime after the proposed decrease is ${predictedRuntime} min, within the ${d.specs.time} min limit.`], options:[{title:`Next-run %B: ${Number(proposed.toFixed(2))}%`,reason:clipped ? "Bounded at the method minimum." : `10 percentage-point reduction from current ${d.currentB}% B.`,b:proposed,expected:predictedRuntime}], action:null};
+      }
+      checks.push(`Peak count equals required count ${d.specs.peaks}.`);
+      if (d.runtime > d.specs.time) {
+        checks.push(`Runtime ${d.runtime} min exceeds ${d.specs.time} min.`);
+        return {status:"warn", title:"Move on to efficiency", copy:`Required peak count has been met, but runtime ${d.runtime} min exceeds the configured limit of ${d.specs.time} min. Proceed to efficiency assessment; do not change selectivity after the required peak count has been met.`, conditions:{blank:true}, checks, action:null};
+      }
+      if (d.runtime <= d.specs.time && d.resolution >= d.specs.rs) return {status:"good", title:"Move on to efficiency", copy:`Peak count, runtime and resolution meet their configured specifications. Move on to efficiency assessment.`, conditions:{blank:true}, checks:[...checks,`Runtime ${d.runtime} min is within limit.`,`Resolution ${d.resolution} meets minimum ${d.specs.rs}.`], action:null};
+      if (d.runtime <= d.specs.time && d.resolution < d.specs.rs) {
+        checks.push(`Resolution ${d.resolution} is below minimum ${d.specs.rs} while runtime is in range; start selectivity with the configured temperature screen.`);
+        const selection = nextSelectivity(d);
+        const changes = selection.kind === "temperature" ? {temp:selection.value,solvent:selection.solvent,other:"Temperature selectivity screen"} : {other:selection.explanation};
+        return {status:"warn", title:selection.title, copy:`Resolution is below ${d.specs.rs} with runtime within limit. ${selection.explanation}`, conditions:conditionSet(d,changes), checks, action:selection};
+      }
+      if (d.runtime > d.specs.time && d.resolution < d.specs.rs) {
+        const selection = nextSelectivity(d);
+        const changes = selection.kind === "temperature"
+          ? {temp:selection.value,solvent:selection.solvent,other:"Selectivity adjustment; reassess runtime and resolution"}
+          : {other:selection.explanation};
+        checks.push(`Runtime ${d.runtime} min exceeds ${d.specs.time} min.`);
+        checks.push(`Resolution ${d.resolution} is below minimum ${d.specs.rs}.`);
+        return {status:"warn", title:selection.title, copy:`Runtime exceeds its limit and resolution is below specification. ${selection.explanation} Reassess both runtime and resolution after the selectivity adjustment.`, conditions:conditionSet(d,changes), checks, action:selection};
+      }
+      if (d.runtime > d.specs.time && d.resolution >= d.specs.rs) {
+        const nextTemperature = [d.targets.t1,d.targets.t2].filter(target => Number.isFinite(target) && target > d.temperature).sort((a,b)=>a-b)[0];
+        const conditions = conditionSet(d,{
+          temp:nextTemperature ?? d.temperature,
+          other:nextTemperature === undefined ? "Set a higher temperature target, then reassess runtime and resolution" : "Increase temperature; reassess runtime and resolution"
+        });
+        checks.push(`Runtime ${d.runtime} min exceeds ${d.specs.time} min.`);
+        checks.push(`Resolution ${d.resolution} meets minimum ${d.specs.rs}.`);
+        const explanation = nextTemperature === undefined
+          ? `Runtime exceeds its limit while resolution meets specification. Current temperature ${d.temperature} °C is already at or above all configured temperature targets; set a higher temperature and reassess both measures.`
+          : `Runtime exceeds its limit while resolution meets specification. Increase temperature to ${nextTemperature} °C to reduce retention, then reassess runtime and resolution.`;
+        const action = nextTemperature === undefined ? null : {kind:"temperature",value:nextTemperature,solvent:d.solvent,explanation};
+        return {status:"warn",title:"Increase temperature",copy:explanation,conditions,checks,action};
+      }
+      if (d.runtime > d.specs.time) {
+        const proposed = Math.min(100,d.currentB * 1.1);
+        if (proposed === d.currentB) return {status:"warn", title:"Runtime out of specification", copy:"Runtime exceeds the limit and %B is already at 100%. Review the method and selectivity strategy; no further %B increase is possible.", conditions:conditionSet(d,{other:"Review method; maximum %B reached"}), checks:[...checks,`Runtime ${d.runtime} min exceeds ${d.specs.time} min.`], action:null};
+        return {status:"warn", title:"Shorten runtime before selectivity", copy:`All required peaks are present, but runtime ${d.runtime} min exceeds ${d.specs.time} min. A 10% relative %B increase is offered to bring retention back into range; reassess resolution on the next run.`, conditions:conditionSet(d,{b:proposed,other:"Retention correction; reassess resolution"}), checks:[...checks,`Runtime ${d.runtime} min exceeds ${d.specs.time} min.`,`Proposed %B is capped at 100%.`], options:[{title:`Increase %B to ${Number(proposed.toFixed(2))}%`,reason:"10% relative increase, capped at 100%; expected runtime requires user calibration.",b:proposed,expected:expectedRuntime(proposed)}], action:null};
+      }
+      return {status:"warn", title:"Review specifications", copy:"The run did not match a supported decision branch. Check specification values and input measurements.", conditions:conditionSet(d), checks, action:null};
+    }
+
+    function fmt(value, unit = "") { return value === null || value === undefined || value === "" ? "Not supplied" : `${value}${unit}`; }
+    function formatConditionB(value) {
+      if (value === null || value === undefined || value === "") return "Not supplied";
+      return typeof value === "number" && Number.isFinite(value) ? `${Number(value.toFixed(2))}%` : String(value);
+    }
+    function conditionMarkup(conditions) {
+      const differs = (value, id) => {
+        const current = byId(id).value.trim();
+        if (value === null || value === undefined || value === "" || current === "") return false;
+        const proposedNumber = Number(value), currentNumber = Number(current);
+        return Number.isFinite(proposedNumber) && Number.isFinite(currentNumber) ? proposedNumber !== currentNumber : String(value).trim() !== current;
+      };
+      const entries = [
+        ["%B",formatConditionB(conditions.b),differs(conditions.b,"currentB")],
+        ["Temperature",typeof conditions.temp === "number" ? fmt(conditions.temp," °C") : fmt(conditions.temp),differs(conditions.temp,"currentTemp")],
+        ["Solvent",fmt(conditions.solvent),differs(conditions.solvent,"currentSolvent")],
+        ["Ligand",fmt(conditions.ligand),differs(conditions.ligand,"currentLigand")],
+        ["Flow",conditions.flow === null ? "Not supplied" : `${conditions.flow} mL/min`,differs(conditions.flow,"flow")],
+        ["Other",conditions.other || "No other change",false]
+      ];
+      return entries.map(([name,value,changed])=>`<div class="condition ${changed ? "changed" : ""} ${value==="Not supplied" ? "missing" : ""}"><dt>${escapeHTML(name)}</dt><dd>${escapeHTML(value)}</dd></div>`).join("");
+    }
+    function renderConditions(conditions) {
+      if (conditions.blank) {
+        byId("conditionGrid").innerHTML = ["%B","Temperature","Solvent","Ligand","Flow","Other"].map(name=>`<div class="condition"><dt>${escapeHTML(name)}</dt><dd></dd></div>`).join("");
+        return;
+      }
+      byId("conditionGrid").innerHTML = conditionMarkup(conditions);
+    }
+    function escapeHTML(value) { return String(value).replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char])); }
+    function renderSpecs(specs) {
+      const altered = specs.peaks!==defaultSpecs.peaks || specs.time!==defaultSpecs.time || specs.rs!==defaultSpecs.rs || specs.pressure!==defaultSpecs.pressure;
+      byId("specStatus").textContent = altered ? "Requirements altered by user" : "Requirements";
+      byId("specPills").innerHTML = [[`${specs.peaks} peaks`,specs.peaks!==defaultSpecs.peaks],[`≤ ${specs.time} min`,specs.time!==defaultSpecs.time],[`Rs ≥ ${specs.rs}`,specs.rs!==defaultSpecs.rs],[`≤ ${specs.pressure} psi`,specs.pressure!==defaultSpecs.pressure]].map(([text,change])=>`<span class="spec-pill ${change?"changed":""}">${escapeHTML(text)}</span>`).join("");
+    }
+    function renderOptions(options = []) {
+      const box = byId("options");
+      if (!options.length) { box.classList.add("hidden"); box.innerHTML=""; return; }
+      box.classList.remove("hidden");
+      box.innerHTML = `<div class="label-tag">Admissible options / expected runtime only from supplied calibration</div>` + options.map(option=>{
+        const expected = typeof option.b === "number" ? (option.expected === null || option.expected === undefined ? "Expected runtime: not estimable from supplied calibration." : `Expected runtime: ${Math.round(option.expected)} min.`) : "";
+        const selected = lastDecision && lastDecision.result.selectedOptionB === option.b;
+        const choose = typeof option.b === "number" && option.allowSelection !== false ? `<button type="button" data-option-b="${option.b}" aria-pressed="${selected}">${selected ? "Selected for next run" : "Use this option"}</button>` : "";
+        return `<article class="option"><strong>${escapeHTML(option.title)}${expected ? ` · ${escapeHTML(expected)}` : ""}</strong><p>${escapeHTML(option.reason)}</p>${choose}</article>`;
+      }).join("");
+    }
+    function renderRecommendationNote(action) {
+      const node = byId("recommendationNote");
+      if (!action || !["temperature","solvent","ligand"].includes(action.kind)) { node.classList.add("hidden"); node.innerHTML=""; return; }
+      const parameter = action.kind === "temperature" ? "Temperature" : action.kind === "solvent" ? "Mobile-phase solvent / %B" : "Ligand / column";
+      const moduleName = action.kind === "temperature" ? "Column oven" : action.kind === "solvent" ? "Pump / solvent proportioning" : "Column / stationary phase";
+      const detail = equipment.find(item => item.parameter === parameter);
+      node.classList.remove("hidden");
+      node.innerHTML = `<strong>Control point: ${escapeHTML(moduleName)}</strong>${escapeHTML(action.explanation)} ${detail ? `Typical range: ${escapeHTML(detail.range)}. Effect: ${escapeHTML(detail.effect)}` : ""} <button class="equipment-link" type="button" data-open-equipment="${escapeHTML(parameter)}">Inspect equipment details →</button>`;
+    }
+    function restoreDecisionBanner() {
+      const banner = byId("decisionBanner");
+      if (!byId("decisionTitle")) {
+        banner.innerHTML = `<div class="decision-label" id="decisionLabel"></div><h2 class="decision-title" id="decisionTitle"></h2><p class="decision-copy" id="decisionCopy"></p>`;
+      }
+    }
+    // Dashboard rubric: distinguish measurements, specifications and the automatically assembled next-run conditions.
+    function renderDecision(d, result) {
+      lastDecision = {data:d,result};
+      decisionIsCurrent = true;
+      if (pendingDecisionRunId) {
+        const run = runRows.find(item => item.id === pendingDecisionRunId);
+        if (run) {
+          run.decision = result.title;
+          run.decisionCopy = result.copy;
+          saveRunRows();
+          renderRunSummary();
+        }
+        pendingDecisionRunId = null;
+      }
+      const banner = byId("decisionBanner");
+      const splitDecisions = result.splitDecisions && result.options && result.options.length > 1;
+      banner.className = `decision-banner ${result.status}${splitDecisions ? " split" : ""}`;
+      if (splitDecisions) {
+        byId("sharedConditions").classList.add("hidden");
+        banner.innerHTML = `<div class="decision-split-intro">
+          <div class="decision-label">Decision / check</div>
+          <h2 class="decision-title">${escapeHTML(result.title)}</h2>
+          ${result.hideSplitIntroCopy ? "" : `<p class="decision-copy">${escapeHTML(result.copy)}</p>`}
+        </div>` + result.options.map(option=>`<article class="decision-choice">
+          <div class="decision-label">Decision / check</div>
+          <h2 class="decision-title">${escapeHTML(option.title)}</h2>
+          <p class="decision-copy">${escapeHTML(option.reason)}</p>
+          <div class="conditions">
+            <div class="conditions-top"><h3>Next-run conditions</h3><span>Automatically assembled from current settings</span></div>
+            <dl class="condition-grid">${conditionMarkup(option.conditions)}</dl>
+          </div>
+        </article>`).join("");
+        renderConditions(result.conditions);
+      } else {
+        byId("sharedConditions").classList.remove("hidden");
+        restoreDecisionBanner();
+        byId("decisionLabel").textContent = result.status === "fail" ? "Stop / pressure gate" : result.status === "good" ? "Recommended decision" : "Decision / check";
+        byId("decisionTitle").textContent = result.title;
+        byId("decisionCopy").textContent = result.copy;
+        renderConditions(result.conditions);
+      }
+      renderSpecs(d.specs); renderOptions(splitDecisions ? [] : result.options); renderRecommendationNote(result.action);
+      byId("calculationDetails").hidden = false;
+      byId("calculationBody").innerHTML = result.checks.map(check=>`<div>• ${escapeHTML(check)}</div>`).join("");
+      byId("nextStep").textContent = result.status === "fail" ? "What next: stop the run sequence and investigate the pressure cause before collecting another chromatogram." : result.title === "Separation complete" ? "What next: record this method condition as meeting the configured separation criteria." : result.title.includes("efficiency") ? "What next: assess efficiency outside this tool; efficiency changes are intentionally not implemented." : "What next: run the displayed next-run conditions, then enter or import that run's measured output and current method conditions.";
+      byId("inputStatus").textContent = "Evaluation complete";
+      byId("runIndicator").textContent = `${d.runLabel} · EVALUATED`;
+    }
+    function evaluate() {
+      byId("inputError").classList.add("hidden");
+      try {
+        const data = readData();
+        const result = decisionFor(data);
+        renderDecision(data,result);
+      } catch (error) {
+        byId("inputError").textContent = error.message;
+        byId("inputError").classList.remove("hidden");
+        byId("inputStatus").textContent = "Evaluation blocked";
+      }
+    }
+
+    byId("options").addEventListener("click", event => {
+      const button = event.target.closest("[data-option-b]");
+      if (!button || !lastDecision) return;
+      const value = Number(button.dataset.optionB);
+      const option = lastDecision.result.options.find(item => item.b === value);
+      if (!option) return;
+      lastDecision.result.selectedOptionB = value;
+      lastDecision.result.conditions.b = value;
+      lastDecision.result.conditions.other = `Selected option: ${option.title}`;
+      renderConditions(lastDecision.result.conditions);
+      renderOptions(lastDecision.result.options);
+      byId("inputStatus").textContent = "Retention option selected; next-run conditions updated";
+    });
+
+    function clearMeasurements() {
+      inputSource = "manual";
+      ["peakCount","runTime","resolution","pressure"].forEach(id=>byId(id).value="");
+      byId("inputError").classList.add("hidden"); byId("inputStatus").textContent="Measurements cleared";
+      restoreDecisionBanner();
+      byId("decisionBanner").className="decision-banner neutral"; byId("decisionLabel").textContent="Decision pending"; byId("decisionTitle").textContent="Enter or import a run"; byId("decisionCopy").textContent="The measured values and configured specifications will appear here after evaluation.";
+      renderConditions({b:null,temp:null,solvent:null,ligand:null,flow:null,other:"—"}); byId("options").classList.add("hidden"); byId("recommendationNote").classList.add("hidden"); byId("calculationDetails").hidden=true;
+      byId("nextStep").textContent=""; lastDecision=null; decisionIsCurrent=false; pendingDecisionRunId=null;
+    }
+
+    function clearCurrentMethodConditions() {
+      ["currentB","currentSolvent","currentTemp","currentLigand","flow"].forEach(id=>byId(id).value="");
+      restoreCalculatedMinimumB();
+    }
+
+    byId("csvFile").addEventListener("change", async event => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      event.target.value = "";
+      clearMeasurements();
+      clearCurrentMethodConditions();
+      try {
+        if (/BLK/i.test(file.name)) throw new Error("BLANK DETECTED, NO PEAKS PRESENT");
+        const text = await readImportText(file);
+        const fileIdentity = getValidatedSampleName(text, file.name);
+        const parsed = parseCSV(text);
+        if (parsed.peaks === null || parsed.runtime === null) throw new Error("File cannot be read: peak count and last-peak runtime were not both found. Check the documented CSV headers.");
+        if (parsed.peaks === 0) throw new Error("No peaks detected in the uploaded file.");
+        setMeasurements(parsed);
+        populateCurrentMethodConditions(file.name, fileIdentity.sampleName);
+        addImportedRun(fileIdentity.sampleName, parsed);
+        inputSource = "file";
+        const missing = [parsed.resolution===null?"worst resolution":"",parsed.pressure===null?"backpressure":""].filter(Boolean);
+        const conditionSource = fileIdentity.warning ? "file name" : "B20";
+        byId("inputStatus").textContent = `Loaded ${file.name}; current method conditions filled from ${conditionSource}${missing.length ? `; enter missing ${missing.join(" and ")}` : ""}`;
+        if (!missing.length) evaluate();
+        if (fileIdentity.warning) {
+          byId("inputError").textContent = fileIdentity.warning;
+          byId("inputError").classList.add("warning");
+          byId("inputError").classList.remove("hidden");
+        }
+      } catch (error) {
+        byId("inputError").textContent = error.message || "File cannot be read.";
+        byId("inputError").classList.remove("warning");
+        byId("inputError").classList.remove("hidden"); byId("inputStatus").textContent="Import failed";
+      }
+    });
+    byId("evaluateBtn").addEventListener("click", () => {
+      inputSource = "manual";
+      evaluate();
+    });
+    byId("clearBtn").addEventListener("click", clearMeasurements);
+    const toggleDefaultSpecsBtn = byId("toggleDefaultSpecsBtn");
+    if (toggleDefaultSpecsBtn) {
+      toggleDefaultSpecsBtn.addEventListener("click", () => {
+        const editor = byId("defaultSpecsEditor");
+        if (!editor) return;
+        editor.classList.toggle("hidden");
+        if (!editor.classList.contains("hidden")) syncDefaultSpecInputs();
+      });
+    }
+    const applyDefaultSpecsBtn = byId("applyDefaultSpecsBtn");
+    if (applyDefaultSpecsBtn) applyDefaultSpecsBtn.addEventListener("click", applyDefaultSpecs);
+    const resetDefaultSpecsBtn = byId("resetDefaultSpecsBtn");
+    if (resetDefaultSpecsBtn) resetDefaultSpecsBtn.addEventListener("click", resetDefaultSpecs);
+    for (const id of [...fields,...textFields,"logKData","rtCalibration"]) {
+      const el = byId(id);
+      if (el) el.addEventListener("input", () => {
+        if (lastDecision) {
+          decisionIsCurrent = false;
+          byId("inputStatus").textContent="Inputs changed; evaluate again";
+        }
+      });
+    }
+    byId("specTime").addEventListener("input", updateMinimumBAnalysis);
+    restoreRunRows();
+    restoreCalculatedMinimumB();
+    renderRunSummary();
+    updateMinimumBAnalysis();
+    byId("addRunRowBtn").addEventListener("click", addCurrentRunRow);
+    byId("minimumBRunRows").addEventListener("click", event => {
+      const button = event.target.closest("button[data-delete-minimum-b-run]");
+      if (!button) return;
+      excludedMinimumBRunIds.add(button.dataset.deleteMinimumBRun);
+      saveRunRows();
+      updateMinimumBAnalysis();
+    });
+    byId("runSummaryRows").addEventListener("click", event => {
+      const decisionButton = event.target.closest("button[data-show-run-decision]");
+      if (decisionButton) {
+        showRunDecision(decisionButton.dataset.showRunDecision);
+        return;
+      }
+      const moveButton = event.target.closest("button[data-move-run]");
+      if (moveButton) {
+        moveRunRow(moveButton.dataset.moveRun, Number(moveButton.dataset.direction));
+        return;
+      }
+      const button = event.target.closest("button[data-delete-run]");
+      if (button) {
+        runRows = runRows.filter(run => run.id !== button.dataset.deleteRun);
+        excludedMinimumBRunIds.delete(button.dataset.deleteRun);
+        saveRunRows();
+        renderRunSummary();
+        updateMinimumBAnalysis();
+        return;
+      }
+      const row = event.target.closest("tr[data-run-id]");
+      if (row && !event.target.closest("button, input, select, textarea, a")) showRunDecision(row.dataset.runId);
+    });
+    byId("closeRunDecision").addEventListener("click", () => byId("runDecisionDialog").close());
+    byId("runSummaryRows").addEventListener("input", event => {
+      const input = event.target.closest("input[data-run-number]");
+      if (input) {
+        const run = runRows.find(item => item.id === input.dataset.runNumber);
+        if (run) {
+          run.run = input.value;
+          run.runNumberManual = true;
+          saveRunRows();
+        }
+        return;
+      }
+      updateRunRowEditor(event);
+    });
+    byId("runSummaryRows").addEventListener("change", updateRunRowEditor);
+    byId("compactRunTable").addEventListener("change", event => {
+      byId("runSummaryTable").classList.toggle("compact", event.target.checked);
+    });
+
+    function updateRunRowEditor(event) {
+      const editor = event.target.closest("[data-run-id][data-run-field]");
+      if (!editor) return;
+      const run = runRows.find(item => item.id === editor.dataset.runId);
+      if (!run) return;
+      if (editor.dataset.runField === "cLoad" && editor.value !== "" && Number(editor.value) > 100) editor.value = "100";
+      run[editor.dataset.runField] = editor.value;
+      saveRunRows();
+    }
+
+    const equipment = [
+      {parameter:"Retention time",category:"",module:"%B, temperature",range:"Minutes; method-dependent",effect:"Shows how long the last peak takes to leave the column under the current method. Wait 5 minutes after the last peak before recording it; otherwise the value may be inaccurate and affect later decisions. Temperature also affects retention time."},
+      {parameter:"Resolution (Rs)",category:"",module:"Selectivity, Solvent type, %B, temperature",range:"Dimensionless",effect:"Shows how well neighbouring peaks are separated. It depends on retention, selectivity, efficiency, peak width and temperature. The instrument reports the lowest resolution in the chromatogram; if fewer peaks than required are present, resolution is 0."},
+      {parameter:"Backpressure",category:"",module:"Pump pressure sensor",range:"Instrument-specific; psi or bar",effect:"Indicates system load and provides a safety check. If it exceeds the configured limit, the decision sequence stops."},
+      {parameter:"Mobile-phase solvent / %B",category:"chemical",module:"Pump / solvent proportioning",range:"0-100% B; method-limited",effect:"Controls solvent strength and retention. A 10-point decrease in %B will often approximately double retention time, but the result depends on the analyte, solvent system and starting composition. Changing solvent identity can also change selectivity and is used after temperature screening; use a nomogram when changing solvent type."},
+      {parameter:"Temperature",category:"chemical",module:"Column oven",range:"Typically ambient to 80 °C; hardware/column dependent",effect:"Can change retention, selectivity and mass transfer, depending on the analyte and stationary phase. Increasing temperature usually improves retention time and is the first selectivity adjustment."},
+      {parameter:"Flow",category:"mechanical",module:"Pump",range:"Often 0.1-5 mL/min analytical; column dependent",effect:"Controls linear velocity, analysis time and pressure. The best flow depends on the column dimensions and particle size, and flow is an efficiency parameter."},
+      {parameter:"Ligand / column",category:"mechanical",module:"Column / stationary phase",range:"Discrete chemistry; manufacturer limits",effect:"Changes analyte interactions, selectivity, peak order and retention time, and may affect efficiency and pressure. The outcome is not predictable, so changing the column requires a full series of runs."},
+      {parameter:"Wavelength",category:"",module:"UV/PDA detector",range:"Detector- and analyte-dependent; typically 190-800 nm",effect:"Sets the detection wavelength used to measure analyte response. It affects signal strength and selectivity of detection, but does not change the chromatographic separation."},
+      {parameter:"Injection volume",category:"mechanical",module:"Auto/Manual Injector",range:"Method- and instrument-dependent; typically 0.5-100 µL",effect:"Controls the amount of sample introduced onto the column. Excessive volume can broaden peaks, reduce resolution and cause overloading."},
+      {parameter:"Column length",category:"mechanical",module:"Column / stationary phase",range:"Manufacturer- and method-dependent",effect:"Affects separation distance, resolution, analysis time and pressure. Longer columns can improve separation but usually increase runtime and backpressure."},
+      {parameter:"Column internal diameter",category:"mechanical",module:"Column / stationary phase",range:"Manufacturer- and method-dependent",effect:"Affects flow behaviour, sample loading, sensitivity and pressure. The suitable flow depends on the column diameter and other column dimensions."},
+      {parameter:"Column Particle size",category:"mechanical",module:"Column / stationary phase",range:"Manufacturer- and method-dependent; typically 1.7-10 µm",effect:"Affects efficiency, resolution, analysis time and pressure. Smaller particles can improve efficiency and resolution but usually increase backpressure."}
+    ];
+    const EQUIPMENT_VARIABLES_STORAGE_KEY = "hplc-equipment-variables-v1";
+    let customEquipmentRows = [];
+    let highlightedEquipmentParameter = "";
+    const customCategoryForParameter = parameter => {
+      const name = String(parameter || "").trim().toLowerCase();
+      if (["injection volume", "flow", "column length", "column internal diameter", "column particle size"].includes(name)) return "mechanical";
+      if (["mobile-phase solvent / %b", "temperature"].includes(name)) return "chemical";
+      return "";
+    };
+
+    function restoreEquipmentRows() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(EQUIPMENT_VARIABLES_STORAGE_KEY) || "[]");
+        if (!Array.isArray(saved)) return;
+        let migrated = false;
+        customEquipmentRows = saved.filter(row => row && typeof row.id === "string").map(row => {
+          const renamed = String(row.parameter || "") === "Peak area";
+          const parameter = renamed ? "Column Particle size" : String(row.parameter || "");
+          const category = customCategoryForParameter(parameter);
+          if (renamed || row.category !== category) migrated = true;
+          return {
+          id: row.id,
+          parameter,
+          category,
+          module: String(row.module || ""),
+          range: String(row.range || ""),
+          effect: String(row.effect || ""),
+          locked: row.locked !== false
+          };
+        });
+        if (migrated) localStorage.setItem(EQUIPMENT_VARIABLES_STORAGE_KEY, JSON.stringify(customEquipmentRows));
+      } catch (error) {
+        customEquipmentRows = [];
+      }
+    }
+
+    function saveEquipmentRows() {
+      try {
+        localStorage.setItem(EQUIPMENT_VARIABLES_STORAGE_KEY, JSON.stringify(customEquipmentRows));
+        byId("equipmentSaveStatus").textContent = "Equipment variables saved and locked.";
+        return true;
+      } catch (error) {
+        byId("equipmentSaveStatus").textContent = "Custom equipment variables could not be saved.";
+        return false;
+      }
+    }
+
+    function equipmentEditor(row, field, multiline = false) {
+      const tag = multiline ? "textarea" : "input";
+      if (row.locked) return escapeHTML(row[field]);
+      const locked = "";
+      return `<${tag} class="equipment-editor" data-equipment-row="${escapeHTML(row.id)}" data-equipment-field="${field}" placeholder="${field === "parameter" ? "Type a variable name" : "Type here"}"${locked}>${multiline ? escapeHTML(row[field]) : `value="${escapeHTML(row[field])}"`}</${tag}>`;
+    }
+
+    function renderCustomEquipmentRow(row) {
+      return `<tr data-custom-equipment-row="${escapeHTML(row.id)}">
+        <td><div class="equipment-row-editor">${equipmentEditor(row, "parameter")}<div class="equipment-row-actions"><button type="button" class="equipment-row-delete" data-delete-equipment-row="${escapeHTML(row.id)}">Remove row</button></div></div></td>
+        <td>${escapeHTML(row.category)}</td>
+        <td>${equipmentEditor(row, "module")}</td>
+        <td>${equipmentEditor(row, "range")}</td>
+        <td>${equipmentEditor(row, "effect", true)}</td>
+        <td>User supplied</td>
+      </tr>`;
+    }
+
+    function addEquipmentVariable(category) {
+      const row = {id:`custom-equipment-${Date.now()}-${Math.random().toString(36).slice(2)}`, parameter:"", category:"", module:"", range:"", effect:"", locked:false};
+      customEquipmentRows.push(row);
+      renderEquipment();
+      const editor = byId("equipmentRows").querySelector(`[data-equipment-row="${row.id}"]`);
+      if (editor) editor.focus();
+    }
+
+    const modules = [
+      {name:"Solvent manager",control:"Mixes solvent channels to achieve mobile-phase composition and controls the mobile phase composition used to set pH in the method.",range:"0-100% B within the configured method; pH is method-dependent and controlled by the solvent composition / buffer conditions.",effect:"Composition changes retention; solvent identity changes can affect selectivity and pH-sensitive analyte behaviour.",image:"HPLC images/Solvent manager.png"},
+      {name:"Degasser",control:"Removes dissolved gases from the mobile phase before it reaches the pump and system.",range:"System-specific; important for stable baseline and low pulsation.",effect:"Reduces bubble-related noise and pressure instability; helps maintain reproducible flow and detector response.",image:"HPLC images/Degasser.png"},
+      {name:"Pump",control:"Delivers mobile phase and controls flow / proportioning. Common configurations include a Binary Pump (2 solvents) or a Pump with Quaternary Valve (4 solvents).",range:"Binary Pump: 2 solvents only; Quaternary Valve pump: 4 solvents; flow and pressure depend on pump model, column and solvent.",effect:"Flow affects linear velocity, runtime and pressure; %B controls solvent strength and retention; the number of available solvents determines how many mobile-phase channels can be mixed.",image:"HPLC images/Pump.png"},
+      {name:"Detector",control:"Measures analyte response as compounds elute; data system integrates peaks.",range:"PDA/UV detector, 254-600 nm; wavelength / acquisition limits depend on detector type.",effect:"Produces chromatographic signals from which peak count, RT and resolution are reported; it does not prescribe separation conditions.",image:"HPLC images/UV Detector.png"}
+    ];
+    const duplicateModules = [
+      {name:"Column / stationary phase",control:"Provides the stationary phase and interaction surface.",range:"Chemistry and pressure / pH limits are manufacturer-specific.",effect:"Ligand chemistry primarily changes selectivity and can also affect retention and efficiency."},
+      {name:"Auto/Manual Injector",control:"Introduces the sample onto the column under the selected conditions.",range:"Injection volume and mode depend on method and sample matrix.",effect:"Sample introduction influences repeatability and can affect observed peak shape and response.",image:"HPLC images/Column and Oven.png"}
+    ];
+    // Equipment rubric: expose modules, controlling points, typical ranges and chromatographic effects interactively.
+    function renderEquipment() {
+      const rows = [];
+      const sourceForParameter = parameter => ["Retention time","Resolution (Rs)","Backpressure"].includes(parameter) ? "Read from chromatogram / instrument" : "User supplied method condition";
+      rows.push(...equipment.map(item => {
+        const index = equipment.indexOf(item);
+        const highlighted = item.parameter === highlightedEquipmentParameter ? " equipment-row-highlight" : "";
+        return `<tr class="${highlighted.trim()}"><td><button type="button" data-equipment-index="${index}">${escapeHTML(item.parameter)}</button></td><td>${escapeHTML(item.category)}</td><td>${item.parameter === "Retention time" || item.parameter === "Resolution (Rs)" ? escapeHTML(item.module) : `<button type="button" data-module-name="${escapeHTML(item.module)}">${escapeHTML(item.module)}</button>`}</td><td>${escapeHTML(item.range)}</td><td>${escapeHTML(item.effect)}</td><td>${escapeHTML(sourceForParameter(item.parameter))}</td></tr>`;
+      }));
+      rows.push(...customEquipmentRows.map(renderCustomEquipmentRow));
+      byId("equipmentRows").innerHTML = rows.join("");
+      const mainModuleMarkup = modules.map((module,index)=>{
+        const imageMarkup = module.image ? `<img src="${module.image}" alt="${escapeHTML(module.name)} illustration">` : "";
+        return `<button class="module-btn" type="button" data-module-index="${index}" aria-pressed="false">${imageMarkup}<span class="module-label">${escapeHTML(module.name)}</span></button>`;
+      }).join("");
+      const duplicateModuleMarkup = duplicateModules.map((module,index)=>{
+        const imageMarkup = module.image ? `<img src="${module.image}" alt="${escapeHTML(module.name)} illustration">` : "";
+        const sizeClass = module.name === "Auto/Manual Injector" ? " module-btn-injector" : module.name === "Column / stationary phase" ? " module-btn-column" : "";
+        return `<button class="module-btn${sizeClass}" type="button" data-module-index="${modules.length + index}" aria-pressed="false">${imageMarkup}<span class="module-label">${escapeHTML(module.name)}</span></button>`;
+      }).join("");
+      byId("moduleButtons").innerHTML = mainModuleMarkup;
+      byId("moduleButtonsDuplicate").innerHTML = duplicateModuleMarkup;
+    }
+    function showModule(index) {
+      highlightedEquipmentParameter = "";
+      byId("equipmentDetail").classList.remove("parameter-highlight");
+      byId("equipmentRows").querySelectorAll("tr").forEach(row => row.classList.remove("equipment-row-highlight"));
+      const item = modules[index] || duplicateModules[index - modules.length];
+      if (!item) return;
+      const moduleButtons = [byId("moduleButtons"), byId("moduleButtonsDuplicate")];
+      moduleButtons.forEach(container => {
+        if (!container) return;
+        container.querySelectorAll("button").forEach((button,i)=>{
+          const expectedIndex = container === byId("moduleButtons") ? i : i;
+          button.setAttribute("aria-pressed", String(button.dataset.moduleIndex == index));
+        });
+      });
+      const moduleFigure = "";
+      if (item.name === "Auto/Manual Injector") {
+        const injectorVariants = [
+          {name:"Autosampler", control:"Automatically draws sample from vials or trays and injects it into the flow path at scheduled intervals.", point:"Autosampler tray / needle / injection valve", range:"Typical analytical injections are about 0.5–50 µL, depending on method and sample concentration."},
+          {name:"Manual injector", control:"Loads sample by hand into the injection loop or valve for a single controlled manual injection.", point:"Manual sample loop / injection port / syringe", range:"Typical loop or syringe injections are often 5–100 µL depending on the method and hardware."}
+        ];
+        byId("equipmentDetail").innerHTML = `
+          <div class="label-tag">Instrument module</div>
+          <h3>${escapeHTML(item.name)}</h3>
+          ${injectorVariants.map(variant => `
+            <div style="margin-top: 14px;">
+              <h4 style="margin: 0 0 8px; font-size: 13px; color: var(--ink);">${escapeHTML(variant.name)}</h4>
+              <dl>
+                <dt>Function</dt><dd>${escapeHTML(variant.control)}</dd>
+                <dt>Control point</dt><dd>${escapeHTML(variant.point)}</dd>
+                <dt>Usual range</dt><dd>${escapeHTML(variant.range)}</dd>
+              </dl>
+            </div>
+          `).join("")}
+        `;
+        return;
+      }
+      byId("equipmentDetail").innerHTML=`<div class="label-tag">Instrument module</div><h3>${escapeHTML(item.name)}</h3><dl><dt>Function</dt><dd>${escapeHTML(item.control)}</dd><dt>Control point</dt><dd>${escapeHTML(item.name)}</dd><dt>Usual range</dt><dd>${escapeHTML(item.range)}</dd><dt>Chromatographic effect</dt><dd>${escapeHTML(item.effect)}</dd></dl>`;
+    }
+    function showParameter(index) {
+      const item = equipment[index]; if (!item) return;
+      highlightedEquipmentParameter = item.parameter;
+      byId("equipmentDetail").classList.add("parameter-highlight");
+      byId("equipmentRows").querySelectorAll("tr").forEach(row => row.classList.toggle("equipment-row-highlight", row.querySelector(`[data-equipment-index="${index}"]`) !== null));
+      byId("equipmentDetail").innerHTML=`<div class="label-tag">Parameter / ${escapeHTML(item.category)}</div><h3>${escapeHTML(item.parameter)}</h3><dl><dt>Function</dt><dd>${escapeHTML(item.effect)}</dd><dt>Control point</dt><dd>${escapeHTML(item.module)}</dd><dt>Usual range</dt><dd>${escapeHTML(item.range)}</dd><dt>Effect family</dt><dd>${escapeHTML(item.category)}</dd></dl>`;
+    }
+    [byId("moduleButtons"), byId("moduleButtonsDuplicate")].forEach(container => {
+      if (!container) return;
+      container.addEventListener("click", event=>{const button=event.target.closest("[data-module-index]"); if(button) showModule(Number(button.dataset.moduleIndex));});
+    });
+    byId("equipmentRows").addEventListener("click", event=>{
+      const deleteButton = event.target.closest("[data-delete-equipment-row]");
+      if (deleteButton) {
+        customEquipmentRows = customEquipmentRows.filter(row => row.id !== deleteButton.dataset.deleteEquipmentRow);
+        renderEquipment();
+        byId("equipmentSaveStatus").textContent = "Unsaved equipment changes.";
+        return;
+      }
+      const parameter=event.target.closest("[data-equipment-index]"); if(parameter) return showParameter(Number(parameter.dataset.equipmentIndex));
+      const module=event.target.closest("[data-module-name]"); if(module){ const index=modules.findIndex(item=>item.name===module.dataset.moduleName); if(index>=0) showModule(index); }
+    });
+    byId("equipmentRows").addEventListener("input", event => {
+      const editor = event.target.closest("[data-equipment-row][data-equipment-field]");
+      if (!editor) return;
+      const row = customEquipmentRows.find(item => item.id === editor.dataset.equipmentRow);
+      if (!row) return;
+      row[editor.dataset.equipmentField] = editor.value;
+      byId("equipmentSaveStatus").textContent = "Unsaved equipment changes.";
+    });
+    document.querySelectorAll("[data-add-equipment-variable]").forEach(button => {
+      button.addEventListener("click", () => addEquipmentVariable(button.dataset.addEquipmentVariable));
+    });
+    byId("saveEquipmentVariables").addEventListener("click", () => {
+      customEquipmentRows.forEach(row => { row.locked = true; });
+      if (saveEquipmentRows()) renderEquipment();
+    });
+    byId("editEquipmentVariables").addEventListener("click", () => {
+      customEquipmentRows.forEach(row => { row.locked = false; });
+      renderEquipment();
+      byId("equipmentSaveStatus").textContent = "Equipment fields unlocked for editing.";
+    });
+    byId("recommendationNote").addEventListener("click", event=>{
+      const link=event.target.closest("[data-open-equipment]"); if(!link)return;
+      const index=equipment.findIndex(item=>item.parameter===link.dataset.openEquipment);
+      if(index>=0) {
+        highlightedEquipmentParameter = link.dataset.openEquipment;
+        showPage("equipment");
+        showParameter(index);
+      }
+    });
+    function showPage(page) {
+      const equipmentActive=page==="equipment";
+      byId("runPage").classList.toggle("hidden-page",equipmentActive); byId("equipmentPage").classList.toggle("active",equipmentActive);
+      byId("runTab").setAttribute("aria-selected",String(!equipmentActive)); byId("equipmentTab").setAttribute("aria-selected",String(equipmentActive));
+    }
+    byId("runTab").addEventListener("click",()=>showPage("run"));
+    byId("equipmentTab").addEventListener("click",()=>showPage("equipment"));
+    byId("equipmentPageBtn").addEventListener("click",()=>showPage("equipment"));
+    syncDefaultSpecInputs();
+    restoreEquipmentRows();
+    renderEquipment();
+    renderSpecs(defaultSpecs);
+  </script>
+</body>
+</html>
